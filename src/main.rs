@@ -1,11 +1,17 @@
 use std::sync::{Arc, Mutex};
+use std::fs;
+use std::process::exit;
 
 async fn send(url: URL) {
     let target_url = url.lock().unwrap().clone();
-    let result = reqwest::get(&target_url).await;
+    let client = reqwest::Client::new();
+    let js = r#"{
+        "name": "Malhar Vora"
+    }"#;
+    let result = client.post(&target_url).json(js).send().await;
     match result {
         Ok(r) => println!("Found something"),
-        Err(_) => println!("Found error"),
+        Err(e) => println!("{:?}", e),
     }
 }
 
@@ -14,7 +20,19 @@ type URL = Arc<Mutex<String>>;
 #[tokio::main]
 async fn main() {
 
-    let url = "0.0.0.0:15000".to_string();
+    let filename = "payload.json".to_string();
+    let result = fs::read_to_string(filename.to_string());
+    let content:String;
+    match result {
+        Ok(r) => content = r,
+        Err(e) => {
+            println!("ERROR: {}, {}", filename.to_string(), e);
+            exit(1)
+        }
+    }; 
+    
+
+    let url = "http://0.0.0.0:15000/posttest".to_string();
     let shared_url = Arc::new(Mutex::new(url));
 
     loop {
