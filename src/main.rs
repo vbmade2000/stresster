@@ -1,26 +1,28 @@
 extern crate clap;
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg};
 use serde_json::Value;
 use std::fs;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
 
-async fn send(url: URL) {
+type URL = Arc<Mutex<String>>;
+type PAYLOAD = Arc<Mutex<Value>>;
+
+async fn send(url: URL, payload: Option<PAYLOAD>) {
     let target_url = url.lock().unwrap().clone();
     let client = reqwest::Client::new();
-    let js = r#"{
-        "name": "Malhar Vora"
-    }"#;
-    let mut content: Value;
-    content = serde_json::from_str(js).unwrap();
-    let result = client.post(&target_url).json(&content).send().await;
+    let result; // For storing request result
+    if payload.is_some() {
+        let content = payload.unwrap().lock().unwrap().clone();
+        result = client.post(&target_url).json(&content).send().await;
+    } else {
+        result = client.post(&target_url).send().await;
+    }
     match result {
-        Ok(r) => println!("Found something"),
+        Ok(_) => println!("Found something"),
         Err(e) => println!("{:?}", e),
     }
 }
-
-type URL = Arc<Mutex<String>>;
 
 #[tokio::main]
 async fn main() {
@@ -49,37 +51,41 @@ async fn main() {
 
     let url = matches.value_of("url").unwrap();
     let payload_filename = matches.value_of("payload").unwrap_or("").to_string();
+    let mut payload: Option<PAYLOAD> = None;
+    let mut content: Option<Value> = None;
 
-    let result = fs::read_to_string(payload_filename.to_string());
-    let content: Value;
-    match result {
-        Ok(r) => {
-            let result = serde_json::from_str(&r);
-            match result {
-                Ok(p) => content = p,
-                Err(e) => {
-                    println!("ERROR: Invalid JSON");
-                    println!("{}", e);
-                    exit(1)
+    // Process payload only if filename supplied
+    if !payload_filename.is_empty() {
+        let result = fs::read_to_string(payload_filename.to_string());
+        match result {
+            Ok(r) => {
+                let result = serde_json::from_str(&r);
+                match result {
+                    Ok(p) => content = Some(p),
+                    Err(e) => {
+                        println!("ERROR: Invalid JSON");
+                        println!("{}", e);
+                        exit(1)
+                    }
                 }
             }
-        }
-        Err(e) => {
-            println!("ERROR: {}, {}", payload_filename.to_string(), e);
-            exit(1)
+            Err(e) => {
+                println!("ERROR: {}, {}", payload_filename, e);
+                exit(1)
+            }
         }
     };
 
-    println!("{}", content);
-    // return;
+    // We share payload only if we have something to share
+    if content.is_some() {
+        payload = Some(Arc::new(Mutex::new(content.unwrap())));
+    }
 
-    let url = "http://0.0.0.0:15000/posttest".to_string();
-    let shared_url = Arc::new(Mutex::new(url));
+    let shared_url = Arc::new(Mutex::new(url.to_string()));
 
     loop {
         let shared_url = shared_url.clone();
-        tokio::spawn(async move { send(shared_url).await });
+        let payload = payload.clone();
+        tokio::spawn(async move { send(shared_url, payload).await });
     }
-
-    // https://api.github.com/users/vbmade2000
 }
