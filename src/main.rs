@@ -1,5 +1,6 @@
 extern crate clap;
 use clap::{App, Arg, SubCommand};
+use serde_json::Value;
 use std::fs;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
@@ -10,7 +11,9 @@ async fn send(url: URL) {
     let js = r#"{
         "name": "Malhar Vora"
     }"#;
-    let result = client.post(&target_url).json(js).send().await;
+    let mut content: Value;
+    content = serde_json::from_str(js).unwrap();
+    let result = client.post(&target_url).json(&content).send().await;
     match result {
         Ok(r) => println!("Found something"),
         Err(e) => println!("{:?}", e),
@@ -48,9 +51,19 @@ async fn main() {
     let payload_filename = matches.value_of("payload").unwrap_or("").to_string();
 
     let result = fs::read_to_string(payload_filename.to_string());
-    let content: String;
+    let content: Value;
     match result {
-        Ok(r) => content = r,
+        Ok(r) => {
+            let result = serde_json::from_str(&r);
+            match result {
+                Ok(p) => content = p,
+                Err(e) => {
+                    println!("ERROR: Invalid JSON");
+                    println!("{}", e);
+                    exit(1)
+                }
+            }
+        }
         Err(e) => {
             println!("ERROR: {}, {}", payload_filename.to_string(), e);
             exit(1)
@@ -58,7 +71,7 @@ async fn main() {
     };
 
     println!("{}", content);
-    return;
+    // return;
 
     let url = "http://0.0.0.0:15000/posttest".to_string();
     let shared_url = Arc::new(Mutex::new(url));
