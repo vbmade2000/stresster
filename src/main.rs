@@ -3,10 +3,30 @@ use clap::{App, Arg};
 use serde_json::Value;
 use std::fs;
 use std::process::exit;
+use std::sync::atomic::AtomicI32;
 use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc;
 
 type URL = Arc<Mutex<String>>;
 type PAYLOAD = Arc<Mutex<Value>>;
+type COUNTER = Arc<AtomicI32>;
+
+#[derive(Debug)]
+enum Command {
+    Increment { num: i32 },
+    Exit,
+}
+
+async fn counting_machine(_counter: COUNTER, mut rx: tokio::sync::mpsc::Receiver<Command>) {
+    while let Some(cmd) = rx.recv().await {
+        match cmd {
+            Command::Increment { num: _ } => println!("Got increment"),
+            Command::Exit => return,
+        };
+        println!("Hello World");
+    }
+    println!("Hello");
+}
 
 async fn send(url: URL, payload: Option<PAYLOAD>) {
     let target_url = url.lock().unwrap().clone();
@@ -49,10 +69,12 @@ async fn main() {
         )
         .get_matches();
 
+    // Extract user supplied values
     let url = matches.value_of("url").unwrap();
     let payload_filename = matches.value_of("payload").unwrap_or("").to_string();
-    let mut payload: Option<PAYLOAD> = None;
-    let mut content: Option<Value> = None;
+
+    let mut payload: Option<PAYLOAD> = None; // Sharable data
+    let mut content: Option<Value> = None; // Stores JSON data
 
     // Process payload only if filename supplied
     if !payload_filename.is_empty() {
@@ -82,6 +104,9 @@ async fn main() {
     }
 
     let shared_url = Arc::new(Mutex::new(url.to_string()));
+    let counter = Arc::new(AtomicI32::new(0)); // Atomic counter to keep request count
+    let (_tx, rx) = mpsc::channel(50);
+    tokio::spawn(async move { counting_machine(counter.clone(), rx) }.await);
 
     loop {
         let shared_url = shared_url.clone();
