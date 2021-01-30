@@ -1,11 +1,13 @@
 extern crate clap;
 use clap::{App, Arg};
+use futures::future::join_all;
 use serde_json::Value;
 use std::fs;
 use std::process::exit;
-use std::sync::atomic::AtomicI32;
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
+// use std::vec::*;
 
 type URL = Arc<Mutex<String>>;
 type PAYLOAD = Arc<Mutex<Value>>;
@@ -20,28 +22,33 @@ enum Command {
 async fn counting_machine(_counter: COUNTER, mut rx: tokio::sync::mpsc::Receiver<Command>) {
     while let Some(cmd) = rx.recv().await {
         match cmd {
-            Command::Increment { num: _ } => println!("Got increment"),
+            Command::Increment { num: _ } => {
+                let counter = _counter.clone();
+                let value = counter.load(Ordering::Relaxed);
+                counter.store(value + 1, Ordering::Relaxed);
+                println!("Got increment")
+            }
             Command::Exit => return,
         };
-        println!("Hello World");
     }
-    println!("Hello");
 }
 
-async fn send(url: URL, payload: Option<PAYLOAD>) {
+async fn send(url: URL, payload: Option<PAYLOAD>, sender: tokio::sync::mpsc::Sender<Command>) {
     let target_url = url.lock().unwrap().clone();
     let client = reqwest::Client::new();
-    let result; // For storing request result
+    let _result; // For storing request result
     if payload.is_some() {
         let content = payload.unwrap().lock().unwrap().clone();
-        result = client.post(&target_url).json(&content).send().await;
+        _result = client.post(&target_url).json(&content).send().await;
     } else {
-        result = client.post(&target_url).send().await;
+        _result = client.post(&target_url).send().await;
     }
-    match result {
-        Ok(_) => println!("Found something"),
-        Err(e) => println!("{:?}", e),
-    }
+    let command = Command::Increment { num: 10 };
+    sender.send(command).await.unwrap();
+    /*match result {
+        Ok(_) => println!(""),
+        Err(e) => println!(""),
+    }*/
 }
 
 #[tokio::main]
@@ -105,12 +112,29 @@ async fn main() {
 
     let shared_url = Arc::new(Mutex::new(url.to_string()));
     let counter = Arc::new(AtomicI32::new(0)); // Atomic counter to keep request count
-    let (_tx, rx) = mpsc::channel(50);
-    tokio::spawn(async move { counting_machine(counter.clone(), rx) }.await);
-
+    let (sender, receiver) = mpsc::channel(50);
+    tokio::spawn(
+        async move {
+            let counter = counter.clone();
+            counting_machine(counter, receiver)
+        }
+        .await,
+    );
+    let mut index: i32 = 1;
+    let mut handles = vec![];
     loop {
         let shared_url = shared_url.clone();
         let payload = payload.clone();
-        tokio::spawn(async move { send(shared_url, payload).await });
+        let sender = sender.clone();
+        handles.push(tokio::spawn(async move {
+            send(shared_url, payload, sender).await
+        }));
+        if index == 10 {
+            break;
+        }
+        index += 1;
     }
+
+    join_all(handles).await;
+    sender.send(Command::Exit).await.unwrap();
 }
