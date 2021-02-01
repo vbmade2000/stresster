@@ -8,7 +8,6 @@ use std::process::exit;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
-// use std::vec::*;
 
 type URL = Arc<Mutex<String>>;
 type PAYLOAD = Arc<Mutex<Value>>;
@@ -48,19 +47,23 @@ async fn counting_machine(counter_map: COUNTER_MAP, mut rx: tokio::sync::mpsc::R
 async fn send(url: URL, payload: Option<PAYLOAD>, sender: tokio::sync::mpsc::Sender<Command>) {
     let target_url = url.lock().unwrap().clone();
     let client = reqwest::Client::new();
-    let _result; // For storing request result
+    let result; // For storing request result
     if payload.is_some() {
         let content = payload.unwrap().lock().unwrap().clone();
-        _result = client.post(&target_url).json(&content).send().await;
+        result = client.post(&target_url).json(&content).send().await;
     } else {
-        _result = client.post(&target_url).send().await;
+        result = client.post(&target_url).send().await;
     }
-    let command = Command::Increment(100);
-    sender.send(command).await.unwrap();
-    /*match result {
-        Ok(_) => println!(""),
-        Err(e) => println!(""),
-    }*/
+    match result {
+        Ok(r) => {
+            let command = Command::Increment(r.status().as_u16());
+            sender.send(command).await.unwrap();
+        }
+        Err(e) => {
+            let command = Command::Increment(0);
+            sender.send(command).await.unwrap();
+        }
+    }
 }
 
 #[tokio::main]
