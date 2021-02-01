@@ -12,11 +12,11 @@ use tokio::sync::mpsc;
 
 type URL = Arc<Mutex<String>>;
 type PAYLOAD = Arc<Mutex<Value>>;
-type COUNTER_MAP = Arc<Mutex<HashMap<i32, AtomicI32>>>;
+type COUNTER_MAP = Arc<Mutex<HashMap<u16, AtomicI32>>>;
 
 #[derive(Debug)]
 enum Command {
-    Increment(i32),
+    Increment(u16),
     Exit,
 }
 
