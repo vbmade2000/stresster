@@ -5,13 +5,12 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::process::exit;
-use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 type URL = Arc<Mutex<String>>;
 type PAYLOAD = Arc<Mutex<Value>>;
-type COUNTER_MAP = Arc<Mutex<HashMap<u16, AtomicI32>>>;
+type COUNTER_MAP = Arc<Mutex<HashMap<u16, i32>>>;
 
 #[derive(Debug)]
 enum Command {
@@ -25,19 +24,14 @@ async fn counting_machine(counter_map: COUNTER_MAP, mut rx: tokio::sync::mpsc::R
             Command::Increment(code) => {
                 let mut map = counter_map.lock().unwrap();
                 if map.contains_key(&code) {
-                    let status_code_counter = map.get_mut(&code).unwrap();
-                    let value = status_code_counter.load(Ordering::Relaxed);
-                    // status_code_counter.store(value + 1, Ordering::Relaxed);
-                    *map.get_mut(&code).unwrap() = AtomicI32::new(value + 1);
+                    let value = map.get(&code).unwrap();
+                    *map.get_mut(&code).unwrap() = value + 1;
                 } else {
-                    // println!("Hua");
-                    map.insert(code, AtomicI32::new(1));
+                    map.insert(code, 1);
                 }
                 // map.entry(100).or_insert(&0) += 1;
-                println!("Got increment")
             }
             Command::Exit => {
-                println!("Exit ##############");
                 return;
             }
         };
