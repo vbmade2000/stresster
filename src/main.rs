@@ -8,7 +8,7 @@ use std::process::exit;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
-type URL = Arc<Mutex<String>>;
+type URL = Arc<String>;
 type METHOD = Arc<Mutex<HTTPMethods>>;
 type PAYLOAD = Arc<Mutex<Value>>;
 type COUNTER_MAP = Arc<Mutex<HashMap<u16, i32>>>;
@@ -68,7 +68,7 @@ async fn send(
     sender: tokio::sync::mpsc::Sender<Command>,
 ) {
     // Commond vars
-    let target_url = url.lock().unwrap().clone();
+    let target_url = url.clone();
     let client = reqwest::Client::new();
     let result; // For storing request result
     let method = method.lock().unwrap().clone();
@@ -76,41 +76,41 @@ async fn send(
         HTTPMethods::GET => {
             if payload.is_some() {
                 let content = payload.unwrap().lock().unwrap().clone();
-                result = client.get(&target_url).json(&content).send().await;
+                result = client.get(&*target_url).json(&content).send().await;
             } else {
-                result = client.get(&target_url).send().await;
+                result = client.get(&*target_url).send().await;
             }
         }
         HTTPMethods::POST => {
             if payload.is_some() {
                 let content = payload.unwrap().lock().unwrap().clone();
-                result = client.post(&target_url).json(&content).send().await;
+                result = client.post(&*target_url).json(&content).send().await;
             } else {
-                result = client.post(&target_url).send().await;
+                result = client.post(&*target_url).send().await;
             }
         }
         HTTPMethods::PUT => {
             if payload.is_some() {
                 let content = payload.unwrap().lock().unwrap().clone();
-                result = client.put(&target_url).json(&content).send().await;
+                result = client.put(&*target_url).json(&content).send().await;
             } else {
-                result = client.put(&target_url).send().await;
+                result = client.put(&*target_url).send().await;
             }
         }
         HTTPMethods::DELETE => {
             if payload.is_some() {
                 let content = payload.unwrap().lock().unwrap().clone();
-                result = client.delete(&target_url).json(&content).send().await;
+                result = client.delete(&*target_url).json(&content).send().await;
             } else {
-                result = client.delete(&target_url).send().await;
+                result = client.delete(&*target_url).send().await;
             }
         }
         HTTPMethods::PATCH => {
             if payload.is_some() {
                 let content = payload.unwrap().lock().unwrap().clone();
-                result = client.patch(&target_url).json(&content).send().await;
+                result = client.patch(&*target_url).json(&content).send().await;
             } else {
-                result = client.patch(&target_url).send().await;
+                result = client.patch(&*target_url).send().await;
             }
         }
     };
@@ -204,7 +204,7 @@ async fn main() {
         payload = Some(Arc::new(Mutex::new(content.unwrap())));
     }
 
-    let shared_url = Arc::new(Mutex::new(url.to_string()));
+    let shared_url = Arc::new(url.to_string());
     let shared_method = Arc::new(Mutex::new(
         HTTPMethods::fromstr(method.to_string()).unwrap(),
     ));
