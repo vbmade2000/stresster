@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 type URL = Arc<String>;
-type METHOD = Arc<Mutex<HTTPMethods>>;
+type METHOD = Arc<HTTPMethods>;
 type PAYLOAD = Arc<Value>;
 type COUNTER_MAP = Arc<Mutex<HashMap<u16, i32>>>;
 
@@ -71,8 +71,8 @@ async fn send(
     let target_url = url.clone();
     let client = reqwest::Client::new();
     let result; // For storing request result
-    let method = method.lock().unwrap().clone();
-    match method {
+    let method = method.clone();
+    match &*method {
         HTTPMethods::GET => {
             if payload.is_some() {
                 let content = payload.clone().unwrap();
@@ -205,9 +205,7 @@ async fn main() {
     }
 
     let shared_url = Arc::new(url.to_string());
-    let shared_method = Arc::new(Mutex::new(
-        HTTPMethods::fromstr(method.to_string()).unwrap(),
-    ));
+    let shared_method = Arc::new(HTTPMethods::fromstr(method.to_string()).unwrap());
     let counter = Arc::new(Mutex::new(HashMap::new())); // Map of Atomic counters to keep HTTP status code count
     let (sender, receiver) = mpsc::channel(50);
     let counter_clone = counter.clone();
