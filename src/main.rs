@@ -147,7 +147,8 @@ async fn main() {
                 .long("payload")
                 .value_name("payload")
                 .help("File containing payload to send")
-                .takes_value(true),
+                .takes_value(true)
+                .default_value(""),
         )
         .arg(Arg::with_name("method")
                 .short("m")
@@ -171,8 +172,8 @@ async fn main() {
     // Extract user supplied values
     let url = matches.value_of("url").unwrap();
     let method = matches.value_of("method").unwrap().to_string();
-    let payload_filename = matches.value_of("payload").unwrap_or("").to_string();
-    let total_requests: i32 = matches.value_of("requests").unwrap_or("0").parse().unwrap();
+    let payload_filename = matches.value_of("payload").unwrap().to_string();
+    let total_requests: i32 = matches.value_of("requests").unwrap().parse().unwrap();
 
     let mut payload: Option<PAYLOAD> = None; // Sharable data
     let mut content: Option<Value> = None; // Stores JSON data
