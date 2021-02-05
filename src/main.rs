@@ -10,7 +10,7 @@ use tokio::sync::mpsc;
 
 type URL = Arc<String>;
 type METHOD = Arc<Mutex<HTTPMethods>>;
-type PAYLOAD = Arc<Mutex<Value>>;
+type PAYLOAD = Arc<Value>;
 type COUNTER_MAP = Arc<Mutex<HashMap<u16, i32>>>;
 
 #[derive(Debug)]
@@ -75,40 +75,40 @@ async fn send(
     match method {
         HTTPMethods::GET => {
             if payload.is_some() {
-                let content = payload.unwrap().lock().unwrap().clone();
-                result = client.get(&*target_url).json(&content).send().await;
+                let content = payload.clone().unwrap();
+                result = client.get(&*target_url).json(&*content).send().await;
             } else {
                 result = client.get(&*target_url).send().await;
             }
         }
         HTTPMethods::POST => {
             if payload.is_some() {
-                let content = payload.unwrap().lock().unwrap().clone();
-                result = client.post(&*target_url).json(&content).send().await;
+                let content = payload.clone().unwrap();
+                result = client.post(&*target_url).json(&*content).send().await;
             } else {
                 result = client.post(&*target_url).send().await;
             }
         }
         HTTPMethods::PUT => {
             if payload.is_some() {
-                let content = payload.unwrap().lock().unwrap().clone();
-                result = client.put(&*target_url).json(&content).send().await;
+                let content = payload.clone().unwrap();
+                result = client.put(&*target_url).json(&*content).send().await;
             } else {
                 result = client.put(&*target_url).send().await;
             }
         }
         HTTPMethods::DELETE => {
             if payload.is_some() {
-                let content = payload.unwrap().lock().unwrap().clone();
-                result = client.delete(&*target_url).json(&content).send().await;
+                let content = payload.clone().unwrap();
+                result = client.delete(&*target_url).json(&*content).send().await;
             } else {
                 result = client.delete(&*target_url).send().await;
             }
         }
         HTTPMethods::PATCH => {
             if payload.is_some() {
-                let content = payload.unwrap().lock().unwrap().clone();
-                result = client.patch(&*target_url).json(&content).send().await;
+                let content = payload.clone().unwrap();
+                result = client.patch(&*target_url).json(&*content).send().await;
             } else {
                 result = client.patch(&*target_url).send().await;
             }
@@ -201,7 +201,7 @@ async fn main() {
 
     // We share payload only if we have something to share
     if content.is_some() {
-        payload = Some(Arc::new(Mutex::new(content.unwrap())));
+        payload = Some(Arc::new(content.unwrap()));
     }
 
     let shared_url = Arc::new(url.to_string());
