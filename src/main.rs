@@ -1,5 +1,9 @@
 extern crate clap;
+
+mod enums;
+
 use clap::{App, Arg};
+use enums::{Command, HTTPMethods};
 use futures::future::join_all;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -13,34 +17,6 @@ type URL = Arc<String>;
 type METHOD = Arc<HTTPMethods>;
 type PAYLOAD = Arc<Value>;
 type COUNTER_MAP = Arc<Mutex<HashMap<u16, i32>>>;
-
-#[derive(Debug)]
-enum Command {
-    Increment(u16),
-    Exit,
-}
-
-#[derive(Debug, Clone)]
-enum HTTPMethods {
-    GET,
-    POST,
-    PUT,
-    DELETE,
-    PATCH,
-}
-
-impl HTTPMethods {
-    pub fn fromstr(method: String) -> Option<HTTPMethods> {
-        match method.as_str() {
-            "GET" => return Some(HTTPMethods::GET),
-            "POST" => return Some(HTTPMethods::POST),
-            "PUT" => return Some(HTTPMethods::PUT),
-            "DELETE" => return Some(HTTPMethods::DELETE),
-            "PATCH" => return Some(HTTPMethods::PATCH),
-            _ => return None,
-        };
-    }
-}
 
 async fn counting_machine(counter_map: COUNTER_MAP, mut rx: tokio::sync::mpsc::Receiver<Command>) {
     let mut map = counter_map.lock().await;
