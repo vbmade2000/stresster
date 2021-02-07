@@ -5,8 +5,9 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::process::exit;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::sync::mpsc;
+use tokio::sync::Mutex;
 
 type URL = Arc<String>;
 type METHOD = Arc<HTTPMethods>;
@@ -42,10 +43,10 @@ impl HTTPMethods {
 }
 
 async fn counting_machine(counter_map: COUNTER_MAP, mut rx: tokio::sync::mpsc::Receiver<Command>) {
+    let mut map = counter_map.lock().await;
     while let Some(cmd) = rx.recv().await {
         match cmd {
             Command::Increment(code) => {
-                let mut map = counter_map.lock().unwrap();
                 if map.contains_key(&code) {
                     let value = map.get(&code).unwrap();
                     *map.get_mut(&code).unwrap() = value + 1;
@@ -237,7 +238,7 @@ async fn main() {
     let _ = counting_machine_handle.await;
     println!("URL: {:?}", shared_url);
     let c = counter.clone();
-    let c_clone = c.lock().unwrap();
+    let c_clone = c.lock().await;
     /*for key in &*c_clone {
         println!("{:?}", key);
     }*/
