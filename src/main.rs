@@ -1,4 +1,7 @@
 extern crate clap;
+#[macro_use]
+extern crate prettytable;
+use prettytable::{Cell, Row, Table};
 
 mod enums;
 
@@ -16,9 +19,9 @@ use tokio::sync::Mutex;
 type URL = Arc<String>;
 type METHOD = Arc<HTTPMethods>;
 type PAYLOAD = Arc<Value>;
-type COUNTER_MAP = Arc<Mutex<HashMap<u16, i32>>>;
+type CounterMap = Arc<Mutex<HashMap<u16, i32>>>;
 
-async fn counting_machine(counter_map: COUNTER_MAP, mut rx: tokio::sync::mpsc::Receiver<Command>) {
+async fn counting_machine(counter_map: CounterMap, mut rx: tokio::sync::mpsc::Receiver<Command>) {
     let mut map = counter_map.lock().await;
     while let Some(cmd) = rx.recv().await {
         match cmd {
@@ -164,8 +167,7 @@ async fn main() {
                 match result {
                     Ok(p) => content = Some(p),
                     Err(e) => {
-                        println!("ERROR: Invalid JSON");
-                        println!("{}", e);
+                        println!("ERROR: {}", e);
                         exit(1)
                     }
                 }
@@ -209,14 +211,22 @@ async fn main() {
     }
 
     join_all(handles).await;
-    println!("Sending Exit");
     sender.send(Command::Exit).await.unwrap();
     let _ = counting_machine_handle.await;
-    println!("URL: {:?}", shared_url);
+
+    // Create nice tabular view to make output easily understandable
+    let mut table = Table::new();
+    table.add_row(row!["Status Code", "Count"]);
+
     let c = counter.clone();
     let c_clone = c.lock().await;
-    /*for key in &*c_clone {
-        println!("{:?}", key);
-    }*/
-    println!("Map: {:?}", &*c_clone);
+    for key in &*c_clone {
+        table.add_row(Row::new(vec![
+            Cell::new(&key.0.to_string()),
+            Cell::new(&key.1.to_string()),
+        ]));
+        // println!("{:?}", key.0);
+    }
+    table.printstd();
+    // println!("Map: {:?}", &*c_clone);
 }
