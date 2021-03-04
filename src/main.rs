@@ -4,24 +4,22 @@ extern crate prettytable;
 use prettytable::{Cell, Row, Table};
 
 mod enums;
+mod types;
+// pub mod output_producers;
 
 use clap::{App, Arg};
 use enums::{Command, HTTPMethods};
 use futures::future::join_all;
+// use output_producers::table_producer::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::process::exit;
 use std::sync::Arc;
-use tokio::sync::mpsc;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
+use types::{COUNTERMAP, METHOD, PAYLOAD, URL};
 
-type URL = Arc<String>;
-type METHOD = Arc<HTTPMethods>;
-type PAYLOAD = Arc<Value>;
-type CounterMap = Arc<Mutex<HashMap<u16, i32>>>;
-
-async fn counting_machine(counter_map: CounterMap, mut rx: tokio::sync::mpsc::Receiver<Command>) {
+async fn counting_machine(counter_map: COUNTERMAP, mut rx: tokio::sync::mpsc::Receiver<Command>) {
     let mut map = counter_map.lock().await;
     while let Some(cmd) = rx.recv().await {
         match cmd {
