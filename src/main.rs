@@ -1,16 +1,15 @@
 extern crate clap;
 #[macro_use]
 extern crate prettytable;
-use prettytable::{Cell, Row, Table};
 
 mod enums;
+pub mod output_producers;
 mod types;
-// pub mod output_producers;
 
 use clap::{App, Arg};
 use enums::{Command, HTTPMethods};
 use futures::future::join_all;
-// use output_producers::table_producer::*;
+use output_producers::table_producer;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
@@ -182,10 +181,12 @@ async fn main() {
         payload = Some(Arc::new(content.unwrap()));
     }
 
+    // Variables shared between tasks
     let shared_url = Arc::new(url.to_string());
     let shared_method = Arc::new(HTTPMethods::fromstr(method.to_string()).unwrap());
     let counter = Arc::new(Mutex::new(HashMap::new())); // Map of Atomic counters to keep HTTP status code count
     let (sender, receiver) = mpsc::channel(50);
+
     let counter_clone = counter.clone();
     let counting_machine_handle =
         tokio::spawn(async move { counting_machine(counter_clone, receiver) }.await);
@@ -212,19 +213,6 @@ async fn main() {
     sender.send(Command::Exit).await.unwrap();
     let _ = counting_machine_handle.await;
 
-    // Create nice tabular view to make output easily understandable
-    let mut table = Table::new();
-    table.add_row(row!["Status Code", "Count"]);
-
     let c = counter.clone();
-    let c_clone = c.lock().await;
-    for key in &*c_clone {
-        table.add_row(Row::new(vec![
-            Cell::new(&key.0.to_string()),
-            Cell::new(&key.1.to_string()),
-        ]));
-        // println!("{:?}", key.0);
-    }
-    table.printstd();
-    // println!("Map: {:?}", &*c_clone);
+    table_producer::produce_tabular_output(c).await;
 }

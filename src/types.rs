@@ -7,4 +7,5 @@ use tokio::sync::Mutex;
 pub type URL = Arc<String>;
 pub type METHOD = Arc<HTTPMethods>;
 pub type PAYLOAD = Arc<Value>;
-pub type COUNTERMAP = Arc<Mutex<HashMap<u16, i32>>>;
+pub type MAP = HashMap<u16, i32>;
+pub type COUNTERMAP = Arc<Mutex<MAP>>;
