@@ -9,7 +9,7 @@ mod types;
 use clap::{App, Arg};
 use enums::{Command, HTTPMethods};
 use futures::future::join_all;
-use output_producers::table_producer;
+use output_producers::{json_producer, table_producer};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
@@ -136,6 +136,15 @@ async fn main() {
                 .possible_values(&["GET", "POST", "PUT", "PATCH", "DELETE"])
                 .default_value("GET")
         )
+        .arg(Arg::with_name("format")
+                .short("f")
+                .long("format")
+                .value_name("format")
+                .help("Output format")
+                .takes_value(true)
+                .possible_values(&["table", "json"])
+                .default_value("table")
+        )
         .arg (
             Arg::with_name("requests")
                 .short("n")
@@ -148,6 +157,7 @@ async fn main() {
 
     // Extract user supplied values
     let url = matches.value_of("url").unwrap();
+    let output_format = matches.value_of("format").unwrap();
     let method = matches.value_of("method").unwrap().to_string();
     let payload_filename = matches.value_of("payload").unwrap().to_string();
     let total_requests: i32 = matches.value_of("requests").unwrap().parse().unwrap();
@@ -214,5 +224,9 @@ async fn main() {
     let _ = counting_machine_handle.await;
 
     let c = counter.clone();
-    table_producer::produce_tabular_output(c).await;
+    if output_format == "json" {
+        json_producer::produce_json_output(c).await;
+    } else if output_format == "table" {
+        table_producer::produce_tabular_output(c).await;
+    }
 }
