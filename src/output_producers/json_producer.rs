@@ -1,7 +1,9 @@
-use crate::types::COUNTERMAP;
+use crate::types::{COUNTERMAP, LOGGER};
 
 /// Shows output in JSON format. It is helpful when stresser is useful in automation
-pub async fn produce_json_output(counter_map: COUNTERMAP) {
+pub async fn produce_json_output(counter_map: COUNTERMAP, logger: LOGGER) {
+    let logger = logger.clone();
+    debug!(logger, "Writing output in JSON format");
     let map = counter_map.lock().await;
 
     // Create nice JSON using serde

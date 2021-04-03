@@ -1,8 +1,10 @@
-use crate::types::COUNTERMAP;
+use crate::types::{COUNTERMAP, LOGGER};
 use prettytable::{Cell, Row, Table};
 
 /// Shows output in tabular format
-pub async fn produce_tabular_output(counter_map: COUNTERMAP) {
+pub async fn produce_tabular_output(counter_map: COUNTERMAP, logger: LOGGER) {
+    let logger = logger.clone();
+    debug!(logger, "Writing output in tabular format");
     // Create nice tabular view to make output easily understandable
     let mut table = Table::new();
     table.add_row(row!["Status Code", "Count"]);
