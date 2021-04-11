@@ -28,7 +28,7 @@ use std::fs;
 use std::process::exit;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
-use types::{COUNTERMAP, DATA, LOGGER, METHOD, URL};
+use types::{COUNTERMAP, DATA, LOGGER, URL};
 
 const LOG_PATH: &str = "stresster.log";
 
@@ -53,7 +53,6 @@ async fn counting_machine(counter_map: COUNTERMAP, mut rx: tokio::sync::mpsc::Re
 }
 
 async fn send(
-    method: METHOD,
     url: URL,
     sender: tokio::sync::mpsc::Sender<Command>,
     logger: LOGGER,
@@ -63,7 +62,6 @@ async fn send(
     let target_url = url.clone();
     let client = Client::new();
     let result; // For storing request result
-    let method = method.clone();
     let logger = logger.clone();
 
     /* A default value for payload in case any of them is not supplied. We can put a condition
@@ -73,15 +71,17 @@ async fn send(
 
     let mut a_payload = &default_payload;
     let mut a_headers = HeaderMap::new();
+    let mut method = HTTPMethods::fromstr("GET".to_string()).unwrap();
     let adata: std::sync::Arc<data::Data>;
 
     if data.is_some() {
         adata = data.clone().unwrap();
         a_payload = &adata.payload;
         a_headers = adata.headers.clone();
+        method = adata.method.clone();
     }
 
-    match &*method {
+    match method {
         HTTPMethods::GET => {
             info!(
                 logger,
@@ -267,12 +267,12 @@ async fn main() {
             );
         }
 
+        data.method = HTTPMethods::fromstr(method.to_string()).unwrap();
         shared_data = Some(Arc::new(data));
     }
 
     // Variables shared between tasks
     let shared_url = Arc::new(url.to_string());
-    let shared_method = Arc::new(HTTPMethods::fromstr(method.to_string()).unwrap());
     let counter = Arc::new(Mutex::new(HashMap::new())); // Map of Atomic counters to keep HTTP status code count
     let (sender, receiver) = mpsc::channel(50);
 
@@ -300,11 +300,10 @@ async fn main() {
     loop {
         let shared_url = shared_url.clone();
         let sender = sender.clone();
-        let shared_method = shared_method.clone();
         let logger = shared_logger.clone();
         let shared_data = shared_data.clone();
         handles.push(tokio::spawn(async move {
-            send(shared_method, shared_url, sender, logger, shared_data).await
+            send(shared_url, sender, logger, shared_data).await
         }));
         if total_requests != 0 {
             if index == total_requests {

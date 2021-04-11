@@ -1,3 +1,4 @@
+use crate::enums::HTTPMethods;
 use reqwest::header::HeaderMap;
 use serde_json::Value;
 
@@ -9,6 +10,9 @@ pub struct Data {
 
     /// HTTP headers to be supplied
     pub headers: HeaderMap,
+
+    /// HTTP Method/Verb to use
+    pub method: HTTPMethods,
 }
 
 impl Default for Data {
@@ -17,6 +21,7 @@ impl Default for Data {
         Data {
             payload: serde_json::from_str("{}").unwrap(),
             headers: HeaderMap::new(),
+            method: HTTPMethods::fromstr("GET".to_string()).unwrap(),
         }
     }
 }
