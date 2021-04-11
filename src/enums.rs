@@ -16,12 +16,12 @@ pub enum HTTPMethods {
 impl HTTPMethods {
     pub fn fromstr(method: String) -> Option<HTTPMethods> {
         match method.as_str() {
-            "GET" => return Some(HTTPMethods::GET),
-            "POST" => return Some(HTTPMethods::POST),
-            "PUT" => return Some(HTTPMethods::PUT),
-            "DELETE" => return Some(HTTPMethods::DELETE),
-            "PATCH" => return Some(HTTPMethods::PATCH),
-            _ => return None,
-        };
+            "GET" => Some(HTTPMethods::GET),
+            "POST" => Some(HTTPMethods::POST),
+            "PUT" => Some(HTTPMethods::PUT),
+            "DELETE" => Some(HTTPMethods::DELETE),
+            "PATCH" => Some(HTTPMethods::PATCH),
+            _ => None,
+        }
     }
 }

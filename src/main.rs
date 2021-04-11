@@ -7,11 +7,13 @@ extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
 
+mod data;
 mod enums;
 pub mod output_producers;
 mod types;
 
 use clap::{App, Arg};
+use data::Data;
 use enums::{Command, HTTPMethods};
 use futures::future::join_all;
 use output_producers::{json_producer, table_producer};
@@ -26,7 +28,7 @@ use std::fs;
 use std::process::exit;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
-use types::{COUNTERMAP, LOGGER, METHOD, PAYLOAD, URL};
+use types::{COUNTERMAP, DATA, LOGGER, METHOD, URL};
 
 const LOG_PATH: &str = "stresster.log";
 
@@ -53,218 +55,92 @@ async fn counting_machine(counter_map: COUNTERMAP, mut rx: tokio::sync::mpsc::Re
 async fn send(
     method: METHOD,
     url: URL,
-    payload: Option<PAYLOAD>,
     sender: tokio::sync::mpsc::Sender<Command>,
     logger: LOGGER,
+    data: Option<DATA>,
 ) {
-    // Commond vars
+    // Common vars
     let target_url = url.clone();
     let client = Client::new();
     let result; // For storing request result
     let method = method.clone();
     let logger = logger.clone();
 
-    /* A default value for payload  and headers if any of them is not supplied. We can put a condition
+    /* A default value for payload in case any of them is not supplied. We can put a condition
        to check if they are supplied but that doesn't feel idiomatic way.
     */
     let default_payload: serde_json::Value = serde_json::from_str("{}").unwrap();
-    let default_headers: serde_json::Value = serde_json::from_str("{}").unwrap();
 
-    // TODO: Move logic to get contents from payload, out of method blocks
-    /* let mut content: Option<&serde_json::value::Value> = None;
-    if payload.is_some() {
-        content = Some(&*(payload.clone().unwrap()));
-    }*/
+    let mut a_payload = &default_payload;
+    let mut a_headers = HeaderMap::new();
+    let adata: std::sync::Arc<data::Data>;
+
+    if data.is_some() {
+        adata = data.clone().unwrap();
+        a_payload = &adata.payload;
+        a_headers = adata.headers.clone();
+    }
+
     match &*method {
         HTTPMethods::GET => {
-            if payload.is_some() {
-                let content = payload.clone().unwrap();
-                let actual_payload = content.get("payload").unwrap_or(&default_payload);
-
-                /* Extract user supplied headers from payload data */
-                let headers = content
-                    .get("headers")
-                    .unwrap_or(&default_headers)
-                    .as_object()
-                    .unwrap();
-
-                /* Generate a HeaderMap from user supplied headers list */
-                let mut h_map = HeaderMap::new();
-                for (key, value) in headers {
-                    h_map.insert(
-                        HeaderName::from_lowercase(key.to_lowercase().as_bytes()).unwrap(),
-                        HeaderValue::from_str(value.as_str().unwrap()).unwrap(),
-                    );
-                }
-                info!(
-                    logger,
-                    "Sending {:?} request to {:?} with payload {:?}", method, target_url, content
-                );
-                result = client
-                    .get(&*target_url)
-                    .json(&*actual_payload)
-                    .headers(h_map)
-                    .send()
-                    .await;
-            } else {
-                info!(
-                    logger,
-                    "Sending {:?} request to {:?} without payload", method, target_url
-                );
-                result = client.get(&*target_url).send().await;
-            }
+            info!(
+                logger,
+                "Sending {:?} request to {:?} with payload {:?}", method, target_url, a_payload
+            );
+            result = client
+                .get(&*target_url)
+                .json(a_payload)
+                .headers(a_headers.clone())
+                .send()
+                .await;
         }
         HTTPMethods::POST => {
-            if payload.is_some() {
-                let content = payload.clone().unwrap();
-                let actual_payload = content.get("payload").unwrap_or(&default_payload);
-
-                /* Extract user supplied headers from payload data */
-                let headers = content
-                    .get("headers")
-                    .unwrap_or(&default_headers)
-                    .as_object()
-                    .unwrap();
-
-                /* Generate a HeaderMap from user supplied headers list */
-                let mut h_map = HeaderMap::new();
-                for (key, value) in headers {
-                    h_map.insert(
-                        HeaderName::from_lowercase(key.to_lowercase().as_bytes()).unwrap(),
-                        HeaderValue::from_str(value.as_str().unwrap()).unwrap(),
-                    );
-                }
-                info!(
-                    logger,
-                    "Sending {:?} request to {:?} with payload {:?}", method, target_url, content
-                );
-                result = client
-                    .post(&*target_url)
-                    .json(&*actual_payload)
-                    .headers(h_map)
-                    .send()
-                    .await;
-            } else {
-                info!(
-                    logger,
-                    "Sending {:?} request to {:?} without payload", method, target_url
-                );
-                result = client.post(&*target_url).send().await;
-            }
+            info!(
+                logger,
+                "Sending {:?} request to {:?} with payload {:?}", method, target_url, a_payload
+            );
+            result = client
+                .post(&*target_url)
+                .json(a_payload)
+                .headers(a_headers.clone())
+                .send()
+                .await;
         }
         HTTPMethods::PUT => {
-            if payload.is_some() {
-                let content = payload.clone().unwrap();
-                let actual_payload = content.get("payload").unwrap_or(&default_payload);
-
-                /* Extract user supplied headers from payload data */
-                let headers = content
-                    .get("headers")
-                    .unwrap_or(&default_headers)
-                    .as_object()
-                    .unwrap();
-
-                /* Generate a HeaderMap from user supplied headers list */
-                let mut h_map = HeaderMap::new();
-                for (key, value) in headers {
-                    h_map.insert(
-                        HeaderName::from_lowercase(key.to_lowercase().as_bytes()).unwrap(),
-                        HeaderValue::from_str(value.as_str().unwrap()).unwrap(),
-                    );
-                }
-                info!(
-                    logger,
-                    "Sending {:?} request to {:?} with payload {:?}", method, target_url, content
-                );
-                result = client
-                    .put(&*target_url)
-                    .json(&*actual_payload)
-                    .headers(h_map)
-                    .send()
-                    .await;
-            } else {
-                info!(
-                    logger,
-                    "Sending {:?} request to {:?} without payload", method, target_url
-                );
-                result = client.put(&*target_url).send().await;
-            }
+            info!(
+                logger,
+                "Sending {:?} request to {:?} with payload {:?}", method, target_url, a_payload
+            );
+            result = client
+                .put(&*target_url)
+                .json(a_payload)
+                .headers(a_headers.clone())
+                .send()
+                .await;
         }
         HTTPMethods::DELETE => {
-            if payload.is_some() {
-                let content = payload.clone().unwrap();
-                let actual_payload = content.get("payload").unwrap_or(&default_payload);
-
-                /* Extract user supplied headers from payload data */
-                let headers = content
-                    .get("headers")
-                    .unwrap_or(&default_headers)
-                    .as_object()
-                    .unwrap();
-
-                /* Generate a HeaderMap from user supplied headers list */
-                let mut h_map = HeaderMap::new();
-                for (key, value) in headers {
-                    h_map.insert(
-                        HeaderName::from_lowercase(key.to_lowercase().as_bytes()).unwrap(),
-                        HeaderValue::from_str(value.as_str().unwrap()).unwrap(),
-                    );
-                }
-                info!(
-                    logger,
-                    "Sending {:?} request to {:?} with payload {:?}", method, target_url, content
-                );
-                result = client
-                    .delete(&*target_url)
-                    .json(&*actual_payload)
-                    .headers(h_map)
-                    .send()
-                    .await;
-            } else {
-                info!(
-                    logger,
-                    "Sending {:?} request to {:?} without payload", method, target_url
-                );
-                result = client.delete(&*target_url).send().await;
-            }
+            info!(
+                logger,
+                "Sending {:?} request to {:?} with payload {:?}", method, target_url, a_payload
+            );
+            result = client
+                .delete(&*target_url)
+                .json(a_payload)
+                .headers(a_headers.clone())
+                .send()
+                .await;
         }
         HTTPMethods::PATCH => {
-            if payload.is_some() {
-                let content = payload.clone().unwrap();
-                let actual_payload = content.get("payload").unwrap_or(&default_payload);
-
-                /* Extract user supplied headers from payload data */
-                let headers = content
-                    .get("headers")
-                    .unwrap_or(&default_headers)
-                    .as_object()
-                    .unwrap();
-
-                /* Generate a HeaderMap from user supplied headers list */
-                let mut h_map = HeaderMap::new();
-                for (key, value) in headers {
-                    h_map.insert(
-                        HeaderName::from_lowercase(key.to_lowercase().as_bytes()).unwrap(),
-                        HeaderValue::from_str(value.as_str().unwrap()).unwrap(),
-                    );
-                }
-                info!(
-                    logger,
-                    "Sending {:?} request to {:?} with payload {:?}", method, target_url, content
-                );
-                result = client
-                    .patch(&*target_url)
-                    .json(&*actual_payload)
-                    .headers(h_map)
-                    .send()
-                    .await;
-            } else {
-                info!(
-                    logger,
-                    "Sending {:?} request to {:?} without payload", method, target_url
-                );
-                result = client.patch(&*target_url).send().await;
-            }
+            info!(
+                logger,
+                "Sending {:?} request to {:?} with payload {:?}", method, target_url, a_payload
+            );
+            result = client
+                .patch(&*target_url)
+                .json(a_payload)
+                .headers(a_headers.clone())
+                .send()
+                .await;
         }
     };
     match result {
@@ -340,7 +216,7 @@ async fn main() {
     let payload_filename = matches.value_of("payload").unwrap().to_string();
     let total_requests: i32 = matches.value_of("requests").unwrap().parse().unwrap();
 
-    let mut payload: Option<PAYLOAD> = None; // Sharable data
+    let mut shared_data: Option<DATA> = None; // Data shared between tasks
     let mut content: Option<Value> = None; // Stores JSON data
 
     // Process payload only if filename supplied
@@ -364,9 +240,34 @@ async fn main() {
         }
     };
 
+    let default_payload: serde_json::Value = serde_json::from_str("{}").unwrap();
+    let default_headers: serde_json::Value = serde_json::from_str("{}").unwrap();
+
     // We share payload only if we have something to share
     if content.is_some() {
-        payload = Some(Arc::new(content.unwrap()));
+        let unwrapped_content = content.unwrap();
+
+        // Extract payload if supplied
+        let actual_payload = unwrapped_content.get("payload").unwrap_or(&default_payload);
+        let mut data: Data = Data::default();
+        data.payload = actual_payload.clone();
+
+        // Extract HTTP headers
+        let headers = unwrapped_content
+            .get("headers")
+            .unwrap_or(&default_headers)
+            .as_object()
+            .unwrap();
+
+        // Insert extracted headers to shared object
+        for (key, value) in headers {
+            data.headers.insert(
+                HeaderName::from_lowercase(key.to_lowercase().as_bytes()).unwrap(),
+                HeaderValue::from_str(value.as_str().unwrap()).unwrap(),
+            );
+        }
+
+        shared_data = Some(Arc::new(data));
     }
 
     // Variables shared between tasks
@@ -386,22 +287,24 @@ async fn main() {
     let drain = slog_async::Async::new(slog_term::FullFormat::new(decorator).build().fuse())
         .build()
         .fuse();
-    // let drain = slog_async::Async::new(drain).build().fuse();
     let logger = slog::Logger::root(drain, o!());
     let shared_logger = Arc::new(logger);
+
+    // Start counter function
     let counter_clone = counter.clone();
     let counting_machine_handle =
         tokio::spawn(async move { counting_machine(counter_clone, receiver) }.await);
+
     let mut index: i32 = 1;
     let mut handles = vec![];
     loop {
         let shared_url = shared_url.clone();
-        let payload = payload.clone();
         let sender = sender.clone();
         let shared_method = shared_method.clone();
         let logger = shared_logger.clone();
+        let shared_data = shared_data.clone();
         handles.push(tokio::spawn(async move {
-            send(shared_method, shared_url, payload, sender, logger).await
+            send(shared_method, shared_url, sender, logger, shared_data).await
         }));
         if total_requests != 0 {
             if index == total_requests {
