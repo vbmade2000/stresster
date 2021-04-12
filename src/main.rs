@@ -28,7 +28,7 @@ use std::fs;
 use std::process::exit;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
-use types::{COUNTERMAP, DATA, LOGGER, URL};
+use types::{COUNTERMAP, DATA, LOGGER};
 
 const LOG_PATH: &str = "stresster.log";
 
@@ -52,14 +52,9 @@ async fn counting_machine(counter_map: COUNTERMAP, mut rx: tokio::sync::mpsc::Re
     }
 }
 
-async fn send(
-    url: URL,
-    sender: tokio::sync::mpsc::Sender<Command>,
-    logger: LOGGER,
-    data: Option<DATA>,
-) {
+async fn send(sender: tokio::sync::mpsc::Sender<Command>, logger: LOGGER, data: Option<DATA>) {
     // Common vars
-    let target_url = url.clone();
+    // -> let target_url = url.clone();
     let client = Client::new();
     let result; // For storing request result
     let logger = logger.clone();
@@ -73,12 +68,14 @@ async fn send(
     let mut a_headers = HeaderMap::new();
     let mut method = HTTPMethods::fromstr("GET".to_string()).unwrap();
     let adata: std::sync::Arc<data::Data>;
+    let mut target_url = "NA".to_string();
 
     if data.is_some() {
         adata = data.clone().unwrap();
         a_payload = &adata.payload;
         a_headers = adata.headers.clone();
         method = adata.method.clone();
+        target_url = adata.url.to_string();
     }
 
     match method {
@@ -164,22 +161,13 @@ async fn main() {
         .version("1.0")
         .author("Malhar Vora <vbmade2000@gmail.com>")
         .arg(
-            Arg::with_name("url")
-                .short("u")
-                .long("url")
-                .value_name("url")
-                .help("API URL to hit")
-                .takes_value(true)
-                .required(true),
-        )
-        .arg(
             Arg::with_name("payload")
                 .short("p")
                 .long("payload")
                 .value_name("payload")
                 .help("File containing payload to send")
                 .takes_value(true)
-                .default_value(""),
+                .required(true),
         )
         .arg(Arg::with_name("method")
                 .short("m")
@@ -210,7 +198,6 @@ async fn main() {
         .get_matches();
 
     // Extract user supplied values
-    let url = matches.value_of("url").unwrap();
     let output_format = matches.value_of("format").unwrap();
     let method = matches.value_of("method").unwrap().to_string();
     let payload_filename = matches.value_of("payload").unwrap().to_string();
@@ -268,11 +255,16 @@ async fn main() {
         }
 
         data.method = HTTPMethods::fromstr(method.to_string()).unwrap();
+        data.url = unwrapped_content
+            .get("url")
+            .expect("ERROR: Please specify URL in payload file")
+            .as_str()
+            .unwrap()
+            .to_string();
         shared_data = Some(Arc::new(data));
     }
 
     // Variables shared between tasks
-    let shared_url = Arc::new(url.to_string());
     let counter = Arc::new(Mutex::new(HashMap::new())); // Map of Atomic counters to keep HTTP status code count
     let (sender, receiver) = mpsc::channel(50);
 
@@ -298,12 +290,11 @@ async fn main() {
     let mut index: i32 = 1;
     let mut handles = vec![];
     loop {
-        let shared_url = shared_url.clone();
         let sender = sender.clone();
         let logger = shared_logger.clone();
         let shared_data = shared_data.clone();
         handles.push(tokio::spawn(async move {
-            send(shared_url, sender, logger, shared_data).await
+            send(sender, logger, shared_data).await
         }));
         if total_requests != 0 {
             if index == total_requests {

@@ -13,6 +13,9 @@ pub struct Data {
 
     /// HTTP Method/Verb to use
     pub method: HTTPMethods,
+
+    /// URL
+    pub url: String,
 }
 
 impl Default for Data {
@@ -22,6 +25,7 @@ impl Default for Data {
             payload: serde_json::from_str("{}").unwrap(),
             headers: HeaderMap::new(),
             method: HTTPMethods::fromstr("GET".to_string()).unwrap(),
+            url: "".to_string(),
         }
     }
 }
