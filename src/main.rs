@@ -169,15 +169,6 @@ async fn main() {
                 .takes_value(true)
                 .required(true),
         )
-        .arg(Arg::with_name("method")
-                .short("m")
-                .long("method")
-                .value_name("method")
-                .help("Type of request to sent")
-                .takes_value(true)
-                .possible_values(&["GET", "POST", "PUT", "PATCH", "DELETE"])
-                .default_value("GET")
-        )
         .arg(Arg::with_name("format")
                 .short("f")
                 .long("format")
@@ -199,7 +190,6 @@ async fn main() {
 
     // Extract user supplied values
     let output_format = matches.value_of("format").unwrap();
-    let method = matches.value_of("method").unwrap().to_string();
     let payload_filename = matches.value_of("payload").unwrap().to_string();
     let total_requests: i32 = matches.value_of("requests").unwrap().parse().unwrap();
 
@@ -254,7 +244,18 @@ async fn main() {
             );
         }
 
-        data.method = HTTPMethods::fromstr(method.to_string()).unwrap();
+        let method = unwrapped_content
+            .get("method")
+            .expect("ERROR: Please specify method in payload file")
+            .as_str()
+            .unwrap()
+            .to_string();
+        let http_method = HTTPMethods::fromstr(method.to_uppercase());
+        if !http_method.is_some() {
+            println!("ERROR: Invalid HTTP method {:?}", method);
+            exit(1);
+        }
+        data.method = http_method.unwrap();
         data.url = unwrapped_content
             .get("url")
             .expect("ERROR: Please specify URL in payload file")
