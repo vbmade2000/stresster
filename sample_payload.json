@@ -1,11 +1,12 @@
 {
-  "url": "http://localhost:15000/posttest",
+  "url": "http://localhost:15000/gettest",
+  "ssl_cert": "./test_server/cert.pem",
   "method": "get",
   "payload": {
     "name": "Malhar Vora"
   },
   "headers": {
-  	"User-Agent": "stresster",
-  	"Content-Type": "application/yaml"
+        "User-Agent": "stresster",
+        "Content-Type": "application/json"
   }
 }

@@ -16,6 +16,9 @@ pub struct Data {
 
     /// URL
     pub url: String,
+
+    /// SSL certificate path
+    pub cert_path: String,
 }
 
 impl Default for Data {
@@ -26,6 +29,7 @@ impl Default for Data {
             headers: HeaderMap::new(),
             method: HTTPMethods::fromstr("GET".to_string()).unwrap(),
             url: "".to_string(),
+            cert_path: "".to_string(),
         }
     }
 }

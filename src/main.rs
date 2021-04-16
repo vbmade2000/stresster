@@ -25,6 +25,7 @@ use serde_json::Value;
 use slog::Drain;
 use std::collections::HashMap;
 use std::fs;
+use std::io::prelude::*;
 use std::process::exit;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
@@ -54,7 +55,6 @@ async fn counting_machine(counter_map: COUNTERMAP, mut rx: tokio::sync::mpsc::Re
 
 async fn send(sender: tokio::sync::mpsc::Sender<Command>, logger: LOGGER, data: DATA) {
     // Common vars
-    let client = Client::new();
     let result; // For storing request result
     let logger = logger.clone();
 
@@ -63,51 +63,46 @@ async fn send(sender: tokio::sync::mpsc::Sender<Command>, logger: LOGGER, data: 
     let headers = data.headers.clone();
     let method = data.method.clone();
     let target_url = data.url.to_string();
-
+    let ssl_cert = &data.cert_path;
     info!(
         logger,
         "Sending {:?} request to {:?} with payload {:?}", method, target_url, payload
     );
+
+    // Build client with required configurations
+    let mut client = Client::builder()
+        .default_headers(headers.clone())
+        .build()
+        .unwrap();
+
+    if ssl_cert.len() > 0 {
+        let mut buf = Vec::new();
+        fs::File::open(ssl_cert)
+            .expect(format!("ERROR: Error reading {:?}", ssl_cert).as_str())
+            .read_to_end(&mut buf)
+            .expect("ERROR: Error reading file");
+        let cert = reqwest::Certificate::from_pem(&buf).unwrap();
+        client = Client::builder()
+            .add_root_certificate(cert)
+            .default_headers(headers)
+            .build()
+            .unwrap();
+    }
     match method {
         HTTPMethods::GET => {
-            result = client
-                .get(&*target_url)
-                .json(payload)
-                .headers(headers.clone())
-                .send()
-                .await;
+            result = client.get(&*target_url).json(payload).send().await;
         }
         HTTPMethods::POST => {
-            result = client
-                .post(&*target_url)
-                .json(payload)
-                .headers(headers.clone())
-                .send()
-                .await;
+            result = client.post(&*target_url).json(payload).send().await;
         }
         HTTPMethods::PUT => {
-            result = client
-                .put(&*target_url)
-                .json(payload)
-                .headers(headers.clone())
-                .send()
-                .await;
+            result = client.put(&*target_url).json(payload).send().await;
         }
         HTTPMethods::DELETE => {
-            result = client
-                .delete(&*target_url)
-                .json(payload)
-                .headers(headers.clone())
-                .send()
-                .await;
+            result = client.delete(&*target_url).json(payload).send().await;
         }
         HTTPMethods::PATCH => {
-            result = client
-                .patch(&*target_url)
-                .json(payload)
-                .headers(headers.clone())
-                .send()
-                .await;
+            result = client.patch(&*target_url).json(payload).send().await;
         }
     };
     match result {
@@ -188,13 +183,14 @@ async fn main() {
     // Default values in case actual values are not supplied
     let default_payload: serde_json::Value = serde_json::from_str("{}").unwrap();
     let default_headers: serde_json::Value = serde_json::from_str("{}").unwrap();
+    let default_path: serde_json::Value = serde_json::from_str("{}").unwrap();
 
-    // Extract payload if supplied
+    // Extract payload or get default payload
     let actual_payload = content.get("payload").unwrap_or(&default_payload);
     let mut data: Data = Data::default();
     data.payload = actual_payload.clone();
 
-    // Extract HTTP headers
+    // Extract HTTP headers or get default HTTP headers
     let headers = content
         .get("headers")
         .unwrap_or(&default_headers)
@@ -232,6 +228,15 @@ async fn main() {
         .as_str()
         .unwrap()
         .to_string();
+
+    // Extract cert_path if spplied
+    data.cert_path = content
+        .get("ssl_cert")
+        .unwrap_or(&default_path)
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+
     shared_data = Arc::new(data);
 
     // Variables shared between tasks

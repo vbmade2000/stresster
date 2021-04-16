@@ -1,5 +1,6 @@
 from flask import Flask, request
 import random
+import sys
 
 IP = "0.0.0.0"
 PORT = "15000"
@@ -23,4 +24,7 @@ def route2():
     print(request.headers)
     return 'Hello, World!', random.choice(statuses)
 
-app.run(host=IP, port=PORT)
+ssl_context = None
+if len(sys.argv) == 2 and sys.argv[1] == "true":
+    ssl_context=("cert.pem", "key.pem")
+app.run(host=IP, port=PORT, ssl_context=ssl_context)
