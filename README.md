@@ -12,11 +12,20 @@
 It is being developed as a hobby project to learn Rust so use it at your own risk.
 
 ### Steps to compile from source
-`$ git clone https://github.com/vbmade2000/stresster.git`
-`$ cd stresster`
-`$ cargo build --release`
-`$ cargo run`
+`$ git clone https://github.com/vbmade2000/stresster.git`  
+`$ cd stresster`  
+`$ cargo build --release`  
+`$ cargo run`  
 You should see help text on screen.
+```
+error: The following required arguments were not provided:
+    --config <config>
+
+USAGE:
+    stresster --config <config> --format <format> --requests <total_requests>
+
+For more information try --help
+```
 
 ### How to use it?
 Specify required parameters related to HTTP requests (headers, payload etc) in a file in a JSON format.
@@ -34,7 +43,7 @@ Specify required parameters related to HTTP requests (headers, payload etc) in a
 3. ***--requests***: Total number of requests to send. (mandatory)
 
 #### Example command
-`cargo run -- --requests 5 -c payload.json`
+`cargo run -- --requests 5 -c payload.json`  
 Here target server is not up so status code is 0.
 ```
 +-------------+-------+
