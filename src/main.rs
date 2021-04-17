@@ -11,6 +11,7 @@ mod data;
 mod enums;
 pub mod output_producers;
 mod types;
+mod tests;
 
 use clap::{App, Arg};
 use data::Data;
