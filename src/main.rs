@@ -10,8 +10,8 @@ extern crate slog_term;
 mod data;
 mod enums;
 pub mod output_producers;
-mod types;
 mod tests;
+mod types;
 
 use clap::{App, Arg};
 use data::Data;
