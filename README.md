@@ -69,6 +69,9 @@ Here target server is not up so status code is 0.
 ```
 
 
+### Run integration tests
+`cargo test -- --nocapture`
+
 
 ### Report bugs etc 
 [Malhar Vora](mailto://vbmade2000@gmail.com)

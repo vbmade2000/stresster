@@ -10,7 +10,10 @@ extern crate slog_term;
 mod data;
 mod enums;
 pub mod output_producers;
+<<<<<<< HEAD
 mod tests;
+=======
+>>>>>>> Add integration test to check if log file is created after execution
 mod types;
 
 use clap::{App, Arg};
