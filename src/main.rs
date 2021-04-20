@@ -7,16 +7,16 @@ extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
 
-mod data;
 mod enums;
 pub mod output_producers;
+mod request_data;
 mod types;
 
 use clap::{App, Arg};
-use data::Data;
-use enums::{Command, HTTPMethods};
+use enums::{Command, HttpMethods};
 use futures::future::join_all;
 use output_producers::{json_producer, table_producer};
+use request_data::RequestData;
 use reqwest::{
     header::{HeaderName, HeaderValue},
     Client,
@@ -29,11 +29,11 @@ use std::io::prelude::*;
 use std::process::exit;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
-use types::{COUNTERMAP, DATA, LOGGER};
+use types::{Countermap, Data, Logger};
 
 const LOG_PATH: &str = "stresster.log";
 
-async fn counting_machine(counter_map: COUNTERMAP, mut rx: tokio::sync::mpsc::Receiver<Command>) {
+async fn counting_machine(counter_map: Countermap, mut rx: tokio::sync::mpsc::Receiver<Command>) {
     let mut map = counter_map.lock().await;
     while let Some(cmd) = rx.recv().await {
         match cmd {
@@ -53,7 +53,7 @@ async fn counting_machine(counter_map: COUNTERMAP, mut rx: tokio::sync::mpsc::Re
     }
 }
 
-async fn send(sender: tokio::sync::mpsc::Sender<Command>, logger: LOGGER, data: DATA) {
+async fn send(sender: tokio::sync::mpsc::Sender<Command>, logger: Logger, data: Data) {
     // Common vars
     let result; // For storing request result
     let logger = logger.clone();
@@ -62,7 +62,7 @@ async fn send(sender: tokio::sync::mpsc::Sender<Command>, logger: LOGGER, data: 
     let payload = &data.payload;
     let headers = data.headers.clone();
     let method = data.method.clone();
-    let target_url = data.url.to_string();
+    let target_url = data.url.to_owned();
     let ssl_cert = &data.cert_path;
     info!(
         logger,
@@ -75,10 +75,10 @@ async fn send(sender: tokio::sync::mpsc::Sender<Command>, logger: LOGGER, data: 
         .build()
         .unwrap();
 
-    if ssl_cert.len() > 0 {
+    if !ssl_cert.is_empty() {
         let mut buf = Vec::new();
         fs::File::open(ssl_cert)
-            .expect(format!("ERROR: Error reading {:?}", ssl_cert).as_str())
+            .unwrap_or_else(|_| panic!("ERROR: Error reading {:?}", ssl_cert))
             .read_to_end(&mut buf)
             .expect("ERROR: Error reading file");
         let cert = reqwest::Certificate::from_pem(&buf).unwrap();
@@ -89,19 +89,19 @@ async fn send(sender: tokio::sync::mpsc::Sender<Command>, logger: LOGGER, data: 
             .unwrap();
     }
     match method {
-        HTTPMethods::GET => {
+        HttpMethods::Get => {
             result = client.get(&*target_url).json(payload).send().await;
         }
-        HTTPMethods::POST => {
+        HttpMethods::Post => {
             result = client.post(&*target_url).json(payload).send().await;
         }
-        HTTPMethods::PUT => {
+        HttpMethods::Put => {
             result = client.put(&*target_url).json(payload).send().await;
         }
-        HTTPMethods::DELETE => {
+        HttpMethods::Delete => {
             result = client.delete(&*target_url).json(payload).send().await;
         }
-        HTTPMethods::PATCH => {
+        HttpMethods::Patch => {
             result = client.patch(&*target_url).json(payload).send().await;
         }
     };
@@ -155,14 +155,14 @@ async fn main() {
 
     // Extract user supplied values
     let output_format = matches.value_of("format").unwrap();
-    let config_filename = matches.value_of("config").unwrap().to_string();
+    let config_filename = matches.value_of("config").unwrap().to_owned();
     let total_requests: i32 = matches.value_of("requests").unwrap().parse().unwrap();
 
-    let shared_data: DATA; // Data shared between tasks
+    let shared_data: Data; // Data shared between tasks
     let content: Value; // Stores JSON data read from file
 
     // TODO: Make error handling compact
-    let result = fs::read_to_string(config_filename.to_string());
+    let result = fs::read_to_string(config_filename.to_owned());
     match result {
         Ok(r) => {
             let result = serde_json::from_str(&r);
@@ -187,8 +187,10 @@ async fn main() {
 
     // Extract payload or get default payload
     let actual_payload = content.get("payload").unwrap_or(&default_payload);
-    let mut data: Data = Data::default();
-    data.payload = actual_payload.clone();
+    let mut request_data = RequestData {
+        payload: actual_payload.clone(),
+        ..Default::default()
+    };
 
     // Extract HTTP headers or get default HTTP headers
     let headers = content
@@ -199,7 +201,7 @@ async fn main() {
 
     // Insert extracted headers to shared object
     for (key, value) in headers {
-        data.headers.insert(
+        request_data.headers.insert(
             HeaderName::from_lowercase(key.to_lowercase().as_bytes()).unwrap(),
             HeaderValue::from_str(value.as_str().unwrap()).unwrap(),
         );
@@ -211,33 +213,33 @@ async fn main() {
         .expect("ERROR: Please specify method in payload file")
         .as_str()
         .unwrap()
-        .to_string();
+        .to_owned();
 
     // Grab enum value from string HTTP method
-    let http_method = HTTPMethods::fromstr(method.to_uppercase());
+    let http_method = HttpMethods::fromstr(method.to_owned());
     if !http_method.is_some() {
         println!("ERROR: Invalid HTTP method {:?}", method);
         exit(1);
     }
-    data.method = http_method.unwrap();
+    request_data.method = http_method.unwrap();
 
     // Extract URL
-    data.url = content
+    request_data.url = content
         .get("url")
         .expect("ERROR: Please specify URL in payload file")
         .as_str()
         .unwrap()
-        .to_string();
+        .to_owned();
 
     // Extract cert_path if spplied
-    data.cert_path = content
+    request_data.cert_path = content
         .get("ssl_cert")
         .unwrap_or(&default_path)
         .as_str()
         .unwrap_or("")
-        .to_string();
+        .to_owned();
 
-    shared_data = Arc::new(data);
+    shared_data = Arc::new(request_data);
 
     // Variables shared between tasks
     let counter = Arc::new(Mutex::new(HashMap::new())); // Map of Atomic counters to keep HTTP status code count
@@ -260,7 +262,7 @@ async fn main() {
     // Start counter function
     let counter_clone = counter.clone();
     let counting_machine_handle =
-        tokio::spawn(async move { counting_machine(counter_clone, receiver) }.await);
+        tokio::spawn(async move { counting_machine(counter_clone, receiver).await });
 
     let mut index: i32 = 1;
     let mut handles = vec![];

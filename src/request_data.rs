@@ -1,10 +1,10 @@
-use crate::enums::HTTPMethods;
+use crate::enums::HttpMethods;
 use reqwest::header::HeaderMap;
 use serde_json::Value;
 
 /// Struct to hold data related to request like payload, header etc
 #[derive(Debug, Clone)]
-pub struct Data {
+pub struct RequestData {
     /// Actual JSON payload to be supplied
     pub payload: Value,
 
@@ -12,7 +12,7 @@ pub struct Data {
     pub headers: HeaderMap,
 
     /// HTTP Method/Verb to use
-    pub method: HTTPMethods,
+    pub method: HttpMethods,
 
     /// URL
     pub url: String,
@@ -21,15 +21,15 @@ pub struct Data {
     pub cert_path: String,
 }
 
-impl Default for Data {
-    /// Create and return instance of Data struct with default values
-    fn default() -> Data {
-        Data {
+impl Default for RequestData {
+    /// Create and return instance of ResuestData struct with default values
+    fn default() -> RequestData {
+        RequestData {
             payload: serde_json::from_str("{}").unwrap(),
             headers: HeaderMap::new(),
-            method: HTTPMethods::fromstr("GET".to_string()).unwrap(),
-            url: "".to_string(),
-            cert_path: "".to_string(),
+            method: HttpMethods::fromstr("get".to_owned()).unwrap(),
+            url: "".to_owned(),
+            cert_path: "".to_owned(),
         }
     }
 }

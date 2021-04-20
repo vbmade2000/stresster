@@ -5,22 +5,22 @@ pub enum Command {
 }
 
 #[derive(Debug, Clone)]
-pub enum HTTPMethods {
-    GET,
-    POST,
-    PUT,
-    DELETE,
-    PATCH,
+pub enum HttpMethods {
+    Get,
+    Post,
+    Put,
+    Delete,
+    Patch,
 }
 
-impl HTTPMethods {
-    pub fn fromstr(method: String) -> Option<HTTPMethods> {
+impl HttpMethods {
+    pub fn fromstr(method: String) -> Option<HttpMethods> {
         match method.as_str() {
-            "GET" => Some(HTTPMethods::GET),
-            "POST" => Some(HTTPMethods::POST),
-            "PUT" => Some(HTTPMethods::PUT),
-            "DELETE" => Some(HTTPMethods::DELETE),
-            "PATCH" => Some(HTTPMethods::PATCH),
+            "get" => Some(HttpMethods::Get),
+            "post" => Some(HttpMethods::Post),
+            "put" => Some(HttpMethods::Put),
+            "delete" => Some(HttpMethods::Delete),
+            "patch" => Some(HttpMethods::Patch),
             _ => None,
         }
     }

@@ -1,8 +1,8 @@
-use crate::types::{COUNTERMAP, LOGGER};
+use crate::types::{Countermap, Logger};
 use prettytable::{Cell, Row, Table};
 
 /// Shows output in tabular format
-pub async fn produce_tabular_output(counter_map: COUNTERMAP, logger: LOGGER) {
+pub async fn produce_tabular_output(counter_map: Countermap, logger: Logger) {
     let logger = logger.clone();
     debug!(logger, "Writing output in tabular format");
     // Create nice tabular view to make output easily understandable
@@ -15,7 +15,6 @@ pub async fn produce_tabular_output(counter_map: COUNTERMAP, logger: LOGGER) {
             Cell::new(&key.0.to_string()),
             Cell::new(&key.1.to_string()),
         ]));
-        // println!("{:?}", key.0);
     }
     table.printstd();
 }
