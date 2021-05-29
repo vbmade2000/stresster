@@ -181,12 +181,12 @@ async fn main() {
     };
 
     // Default values in case actual values are not supplied
-    let default_payload: serde_json::Value = serde_json::from_str("{}").unwrap();
-    let default_headers: serde_json::Value = serde_json::from_str("{}").unwrap();
-    let default_path: serde_json::Value = serde_json::from_str("{}").unwrap();
+    let default_value: serde_json::Value = serde_json::from_str("{}").unwrap();
+    // let default_hea: serde_json::Value = serde_json::from_str("{}").unwrap();
+    // let default_path: serde_json::Value = serde_json::from_str("{}").unwrap();
 
     // Extract payload or get default payload
-    let actual_payload = content.get("payload").unwrap_or(&default_payload);
+    let actual_payload = content.get("payload").unwrap_or(&default_value);
     let mut request_data = RequestData {
         payload: actual_payload.clone(),
         ..Default::default()
@@ -195,7 +195,7 @@ async fn main() {
     // Extract HTTP headers or get default HTTP headers
     let headers = content
         .get("headers")
-        .unwrap_or(&default_headers)
+        .unwrap_or(&default_value)
         .as_object()
         .unwrap();
 
@@ -234,7 +234,7 @@ async fn main() {
     // Extract cert_path if spplied
     request_data.cert_path = content
         .get("ssl_cert")
-        .unwrap_or(&default_path)
+        .unwrap_or(&default_value)
         .as_str()
         .unwrap_or("")
         .to_owned();
