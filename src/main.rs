@@ -8,6 +8,7 @@ extern crate slog_async;
 extern crate slog_term;
 
 mod enums;
+mod helper;
 pub mod output_producers;
 mod request_data;
 mod types;
@@ -15,24 +16,20 @@ mod types;
 use clap::{App, Arg};
 use enums::{Command, HttpMethods};
 use futures::future::join_all;
+use helper::{extract_values_from_args, get_logger, get_request_data_from_file};
 use output_producers::{json_producer, table_producer};
-use request_data::RequestData;
-use reqwest::{
-    header::{HeaderName, HeaderValue},
-    Client,
-};
-use serde_json::Value;
-use slog::Drain;
+use reqwest::Client;
 use std::collections::HashMap;
 use std::fs;
 use std::io::prelude::*;
-use std::process::exit;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 use types::{Countermap, Data, Logger};
 
 const LOG_PATH: &str = "stresster.log";
 
+/// Counts number of requests for all the received status code based on data received from Send
+/// function.
 async fn counting_machine(counter_map: Countermap, mut rx: tokio::sync::mpsc::Receiver<Command>) {
     let mut map = counter_map.lock().await;
     while let Some(cmd) = rx.recv().await {
@@ -53,6 +50,8 @@ async fn counting_machine(counter_map: Countermap, mut rx: tokio::sync::mpsc::Re
     }
 }
 
+/// Actual sends the{GET, POST, PUT, PATCH, DELETE} requests to URL configured in Data file.
+/// Sends return code to couting_machine function for accouting.
 async fn send(sender: tokio::sync::mpsc::Sender<Command>, logger: Logger, data: Data) {
     // Common vars
     let result; // For storing request result
@@ -154,91 +153,12 @@ async fn main() {
         .get_matches();
 
     // Extract user supplied values
-    let output_format = matches.value_of("format").unwrap();
-    let config_filename = matches.value_of("config").unwrap().to_owned();
-    let total_requests: i32 = matches.value_of("requests").unwrap().parse().unwrap();
+    let (output_format, config_filename, total_requests) = extract_values_from_args(matches).await;
 
     let shared_data: Data; // Data shared between tasks
-    let content: Value; // Stores JSON data read from file
 
-    // TODO: Make error handling compact
-    let result = fs::read_to_string(config_filename.to_owned());
-    match result {
-        Ok(r) => {
-            let result = serde_json::from_str(&r);
-            match result {
-                Ok(p) => content = p,
-                Err(e) => {
-                    println!("ERROR: {}", e);
-                    exit(1)
-                }
-            }
-        }
-        Err(e) => {
-            println!("ERROR: {}, {}", config_filename, e);
-            exit(1)
-        }
-    };
-
-    // Default values in case actual values are not supplied
-    let default_value: serde_json::Value = serde_json::from_str("{}").unwrap();
-    // let default_hea: serde_json::Value = serde_json::from_str("{}").unwrap();
-    // let default_path: serde_json::Value = serde_json::from_str("{}").unwrap();
-
-    // Extract payload or get default payload
-    let actual_payload = content.get("payload").unwrap_or(&default_value);
-    let mut request_data = RequestData {
-        payload: actual_payload.clone(),
-        ..Default::default()
-    };
-
-    // Extract HTTP headers or get default HTTP headers
-    let headers = content
-        .get("headers")
-        .unwrap_or(&default_value)
-        .as_object()
-        .unwrap();
-
-    // Insert extracted headers to shared object
-    for (key, value) in headers {
-        request_data.headers.insert(
-            HeaderName::from_lowercase(key.to_lowercase().as_bytes()).unwrap(),
-            HeaderValue::from_str(value.as_str().unwrap()).unwrap(),
-        );
-    }
-
-    // Extract HTTP method
-    let method = content
-        .get("method")
-        .expect("ERROR: Please specify method in payload file")
-        .as_str()
-        .unwrap()
-        .to_owned();
-
-    // Grab enum value from string HTTP method
-    let http_method = HttpMethods::fromstr(method.to_owned());
-    if !http_method.is_some() {
-        println!("ERROR: Invalid HTTP method {:?}", method);
-        exit(1);
-    }
-    request_data.method = http_method.unwrap();
-
-    // Extract URL
-    request_data.url = content
-        .get("url")
-        .expect("ERROR: Please specify URL in payload file")
-        .as_str()
-        .unwrap()
-        .to_owned();
-
-    // Extract cert_path if spplied
-    request_data.cert_path = content
-        .get("ssl_cert")
-        .unwrap_or(&default_value)
-        .as_str()
-        .unwrap_or("")
-        .to_owned();
-
+    // Create RequestData from data file
+    let request_data = get_request_data_from_file(config_filename).await;
     shared_data = Arc::new(request_data);
 
     // Variables shared between tasks
@@ -246,17 +166,7 @@ async fn main() {
     let (sender, receiver) = mpsc::channel(50);
 
     // Create a logger instance
-    let file = fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(LOG_PATH)
-        .expect("ERROR: Unable to create a log file");
-    let decorator = slog_term::PlainDecorator::new(file);
-    let drain = slog_async::Async::new(slog_term::FullFormat::new(decorator).build().fuse())
-        .build()
-        .fuse();
-    let logger = slog::Logger::root(drain, o!());
+    let logger = get_logger(LOG_PATH.to_owned()).await;
     let shared_logger = Arc::new(logger);
 
     // Start counter function

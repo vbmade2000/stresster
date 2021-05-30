@@ -1,0 +1,118 @@
+use crate::enums::HttpMethods;
+use crate::request_data::RequestData;
+use clap::ArgMatches;
+use reqwest::header::{HeaderName, HeaderValue};
+use serde_json::Value;
+use slog::Drain;
+use slog::Logger;
+use std::fs;
+use std::process::exit;
+
+/// Extracts and returns all the command line parameters
+pub async fn extract_values_from_args<'a>(args: ArgMatches<'a>) -> (String, String, i32) {
+    // Extract user supplied values
+    let output_format = args.value_of("format").unwrap();
+    let config_filename = args.value_of("config").unwrap().to_owned();
+    let total_requests: i32 = args.value_of("requests").unwrap().parse().unwrap();
+    (output_format.to_owned(), config_filename, total_requests)
+}
+
+/// Reads and parses Data file and returns RequestData struct with values fufilled
+pub async fn get_request_data_from_file(config_filename: String) -> RequestData {
+    let content: Value; // Stores JSON data read from file
+
+    // Default values in case actual values are not supplied
+    let default_value: serde_json::Value = serde_json::from_str("{}").unwrap();
+
+    // TODO: Make error handling compact
+    let result = fs::read_to_string(config_filename.to_owned());
+    match result {
+        Ok(r) => {
+            let result = serde_json::from_str(&r);
+            match result {
+                Ok(p) => content = p,
+                Err(e) => {
+                    println!("ERROR: {}", e);
+                    exit(1)
+                }
+            }
+        }
+        Err(e) => {
+            println!("ERROR: {}, {}", config_filename, e);
+            exit(1)
+        }
+    };
+
+    // Extract payload or get default payload
+    let actual_payload = content.get("payload").unwrap_or(&default_value);
+    let mut request_data = RequestData {
+        payload: actual_payload.clone(),
+        ..Default::default()
+    };
+
+    // Extract HTTP headers or get default HTTP headers
+    let headers = content
+        .get("headers")
+        .unwrap_or(&default_value)
+        .as_object()
+        .unwrap();
+
+    // Insert extracted headers to shared object
+    for (key, value) in headers {
+        request_data.headers.insert(
+            HeaderName::from_lowercase(key.to_lowercase().as_bytes()).unwrap(),
+            HeaderValue::from_str(value.as_str().unwrap()).unwrap(),
+        );
+    }
+
+    // Extract HTTP method
+    let method = content
+        .get("method")
+        .expect("ERROR: Please specify method in payload file")
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    // Grab enum value from string HTTP method
+    let http_method = HttpMethods::fromstr(method.to_owned());
+    if http_method.is_none() {
+        println!("ERROR: Invalid HTTP method {:?}", method);
+        exit(1);
+    }
+    request_data.method = http_method.unwrap();
+
+    // Extract URL
+    request_data.url = content
+        .get("url")
+        .expect("ERROR: Please specify URL in payload file")
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    // Extract cert_path if spplied
+    request_data.cert_path = content
+        .get("ssl_cert")
+        .unwrap_or(&default_value)
+        .as_str()
+        .unwrap_or("")
+        .to_owned();
+
+    request_data
+}
+
+/// Creates a new logger and returns it
+pub async fn get_logger(filename: String) -> Logger {
+    // Create a logger instance
+    let file = fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(filename)
+        .expect("ERROR: Unable to create a log file");
+    let decorator = slog_term::PlainDecorator::new(file);
+    let drain = slog_async::Async::new(slog_term::FullFormat::new(decorator).build().fuse())
+        .build()
+        .fuse();
+    let logger = slog::Logger::root(drain, o!());
+    logger
+}
