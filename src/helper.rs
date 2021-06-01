@@ -1,6 +1,6 @@
 use crate::enums::HttpMethods;
 use crate::request_data::RequestData;
-use clap::ArgMatches;
+use clap::{App, Arg, ArgMatches};
 use reqwest::header::{HeaderName, HeaderValue};
 use serde_json::Value;
 use slog::Drain;
@@ -113,6 +113,40 @@ pub async fn get_logger(filename: String) -> Logger {
     let drain = slog_async::Async::new(slog_term::FullFormat::new(decorator).build().fuse())
         .build()
         .fuse();
-    let logger = slog::Logger::root(drain, o!());
-    logger
+    slog::Logger::root(drain, o!())
+}
+
+/// Specifies all the command line arguments. Constructs a
+/// ArgMatches instance and returns it.
+pub async fn get_cmd_args<'a>() -> ArgMatches<'a> {
+    App::new("stresster")
+        .version("0.1.0")
+        .author("Malhar Vora <vbmade2000@gmail.com>")
+        .arg(
+            Arg::with_name("config")
+                .short("c")
+                .long("config")
+                .value_name("config")
+                .help("Configuration file containing data to send")
+                .takes_value(true)
+                .required(true),
+        )
+        .arg(Arg::with_name("format")
+                .short("f")
+                .long("format")
+                .value_name("format")
+                .help("Output format")
+                .takes_value(true)
+                .possible_values(&["table", "json"])
+                .default_value("table")
+        )
+        .arg (
+            Arg::with_name("requests")
+                .short("n")
+                .long("requests")
+                .default_value("0")
+                .value_name("total_requests")
+                    .help("Number of requests to send. Supply 0 or avoid supplying to send infinite number of requests")
+        )
+        .get_matches()
 }

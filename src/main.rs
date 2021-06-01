@@ -13,10 +13,9 @@ pub mod output_producers;
 mod request_data;
 mod types;
 
-use clap::{App, Arg};
 use enums::{Command, HttpMethods};
 use futures::future::join_all;
-use helper::{extract_values_from_args, get_logger, get_request_data_from_file};
+use helper::{extract_values_from_args, get_cmd_args, get_logger, get_request_data_from_file};
 use output_producers::{json_producer, table_producer};
 use reqwest::Client;
 use std::collections::HashMap;
@@ -120,37 +119,8 @@ async fn send(sender: tokio::sync::mpsc::Sender<Command>, logger: Logger, data: 
 
 #[tokio::main]
 async fn main() {
-    // Prepare for argument parsing
-    let matches = App::new("stresster")
-        .version("0.1.0")
-        .author("Malhar Vora <vbmade2000@gmail.com>")
-        .arg(
-            Arg::with_name("config")
-                .short("c")
-                .long("config")
-                .value_name("config")
-                .help("Configuration file containing data to send")
-                .takes_value(true)
-                .required(true),
-        )
-        .arg(Arg::with_name("format")
-                .short("f")
-                .long("format")
-                .value_name("format")
-                .help("Output format")
-                .takes_value(true)
-                .possible_values(&["table", "json"])
-                .default_value("table")
-        )
-        .arg (
-            Arg::with_name("requests")
-                .short("n")
-                .long("requests")
-                .default_value("0")
-                .value_name("total_requests")
-                    .help("Number of requests to send. Supply 0 or avoid supplying to send infinite number of requests")
-        )
-        .get_matches();
+    // Generate command line args
+    let matches = get_cmd_args().await;
 
     // Extract user supplied values
     let (output_format, config_filename, total_requests) = extract_values_from_args(matches).await;
