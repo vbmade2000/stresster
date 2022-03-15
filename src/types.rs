@@ -12,17 +12,14 @@ pub type Logger = Arc<slog::Logger>;
 pub enum OutputFormat {
     Json,
     Table,
-    None,
 }
 
 impl From<String> for OutputFormat {
     fn from(output_format: String) -> Self {
         if output_format.to_lowercase() == "json" {
             OutputFormat::Json
-        } else if output_format.to_lowercase() == "table" {
-            OutputFormat::Table
         } else {
-            OutputFormat::None
+            OutputFormat::Table
         }
     }
 }
@@ -31,10 +28,8 @@ impl From<&str> for OutputFormat {
     fn from(output_format: &str) -> Self {
         if output_format.to_lowercase() == "json" {
             OutputFormat::Json
-        } else if output_format.to_lowercase() == "table" {
-            OutputFormat::Table
         } else {
-            OutputFormat::None
+            OutputFormat::Table
         }
     }
 }

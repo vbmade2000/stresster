@@ -1,9 +1,9 @@
 use crate::enums::{Command, HttpMethods};
 use crate::helper::{
-    extract_values_from_args, get_cmd_args, get_logger, get_request_data_from_file,
+    extract_values_from_args, get_cmd_args, get_logger, get_output_producer,
+    get_request_data_from_file,
 };
-use crate::output_producers::{json_producer, table_producer};
-use crate::types::{Countermap, Data, Logger, OutputFormat};
+use crate::types::{Countermap, Data, Logger};
 use futures::future::join_all;
 use reqwest::Client;
 use std::collections::HashMap;
@@ -167,10 +167,7 @@ impl Stresster {
         /* Output based on format. We don't need to worry about formats other than specified.
            Clap's argument parser will take care of that.
         */
-        if output_format == OutputFormat::Json {
-            json_producer::produce_json_output(c, logger).await;
-        } else if output_format == OutputFormat::Table {
-            table_producer::produce_tabular_output(c, logger).await;
-        };
+        let producer = get_output_producer(output_format).await;
+        producer.produce(c, logger).await;
     }
 }

@@ -1,4 +1,7 @@
 use crate::enums::HttpMethods;
+use crate::output_producers::json_producer;
+use crate::output_producers::output_producer::OutputProducer;
+use crate::output_producers::table_producer;
 use crate::request_data::RequestData;
 use crate::types::OutputFormat;
 use clap::{App, Arg, ArgMatches};
@@ -150,4 +153,12 @@ pub async fn get_cmd_args<'a>() -> ArgMatches<'a> {
                     .help("Number of requests to send. Supply 0 or avoid supplying to send infinite number of requests")
         )
         .get_matches()
+}
+
+/// Returns an output producer based on `OutputFormat`
+pub async fn get_output_producer(output_format: OutputFormat) -> Box<dyn OutputProducer> {
+    match output_format {
+        OutputFormat::Json => Box::new(json_producer::JSONProducer {}),
+        OutputFormat::Table => Box::new(table_producer::TableProducer {}),
+    }
 }
