@@ -1,5 +1,6 @@
 use crate::enums::HttpMethods;
 use crate::request_data::RequestData;
+use crate::types::OutputFormat;
 use clap::{App, Arg, ArgMatches};
 use reqwest::header::{HeaderName, HeaderValue};
 use serde_json::Value;
@@ -9,12 +10,12 @@ use std::fs;
 use std::process::exit;
 
 /// Extracts and returns all the command line parameters
-pub async fn extract_values_from_args<'a>(args: ArgMatches<'a>) -> (String, String, i32) {
+pub async fn extract_values_from_args<'a>(args: ArgMatches<'a>) -> (OutputFormat, String, i32) {
     // Extract user supplied values
-    let output_format = args.value_of("format").unwrap();
+    let output_format = OutputFormat::from(args.value_of("format").unwrap());
     let config_filename = args.value_of("config").unwrap().to_owned();
     let total_requests: i32 = args.value_of("requests").unwrap().parse().unwrap();
-    (output_format.to_owned(), config_filename, total_requests)
+    (output_format, config_filename, total_requests)
 }
 
 /// Reads and parses Data file and returns RequestData struct with values fufilled
