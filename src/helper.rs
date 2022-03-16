@@ -1,14 +1,10 @@
-use crate::enums::HttpMethods;
-use crate::output_producers::json_producer;
 use crate::output_producers::output_producer::OutputProducer;
-use crate::output_producers::table_producer;
-use crate::request_data::RequestData;
-use crate::types::OutputFormat;
+use crate::output_producers::{json_producer, table_producer};
+use crate::types::{HttpMethods, OutputFormat, RequestData};
 use clap::{App, Arg, ArgMatches};
 use reqwest::header::{HeaderName, HeaderValue};
 use serde_json::Value;
-use slog::Drain;
-use slog::Logger;
+use slog::{Drain, Logger};
 use std::fs;
 use std::process::exit;
 
@@ -22,7 +18,7 @@ pub async fn extract_values_from_args(args: ArgMatches<'_>) -> (OutputFormat, St
 }
 
 /// Reads and parses Data file and returns RequestData struct with values fufilled
-pub async fn get_request_data_from_file(config_filename: String) -> RequestData {
+pub async fn get_request_data_from_file(config_filename: &str) -> RequestData {
     let content: Value; // Stores JSON data read from file
 
     // Default values in case actual values are not supplied
@@ -74,11 +70,10 @@ pub async fn get_request_data_from_file(config_filename: String) -> RequestData 
         .get("method")
         .expect("ERROR: Please specify method in payload file")
         .as_str()
-        .unwrap()
-        .to_owned();
+        .unwrap();
 
     // Grab enum value from string HTTP method
-    let http_method = HttpMethods::fromstr(method.to_owned());
+    let http_method = HttpMethods::fromstr(method);
     if http_method.is_none() {
         println!("ERROR: Invalid HTTP method {:?}", method);
         exit(1);
@@ -105,7 +100,7 @@ pub async fn get_request_data_from_file(config_filename: String) -> RequestData 
 }
 
 /// Creates a new logger and returns it
-pub async fn get_logger(filename: String) -> Logger {
+pub async fn get_logger(filename: &str) -> Logger {
     // Create a logger instance
     let file = fs::OpenOptions::new()
         .create(true)

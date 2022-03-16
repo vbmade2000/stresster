@@ -7,10 +7,8 @@ extern crate slog;
 extern crate slog_async;
 extern crate slog_term;
 
-mod enums;
 mod helper;
 pub mod output_producers;
-mod request_data;
 mod stresster;
 mod types;
 

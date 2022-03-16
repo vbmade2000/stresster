@@ -1,9 +1,8 @@
-use crate::enums::{Command, HttpMethods};
 use crate::helper::{
     extract_values_from_args, get_cmd_args, get_logger, get_output_producer,
     get_request_data_from_file,
 };
-use crate::types::{Countermap, Data, Logger};
+use crate::types::{Command, Countermap, Data, HttpMethods, Logger};
 use futures::future::join_all;
 use reqwest::Client;
 use std::collections::HashMap;
@@ -109,7 +108,7 @@ impl Stresster {
             extract_values_from_args(matches).await;
 
         // Create RequestData from data file
-        let request_data = get_request_data_from_file(config_filename).await;
+        let request_data = get_request_data_from_file(&config_filename).await;
         let shared_data = Arc::new(request_data);
 
         // Variables shared between tasks
@@ -117,7 +116,7 @@ impl Stresster {
         let (sender, receiver) = mpsc::channel(50);
 
         // Create a logger instance
-        let logger = get_logger(self.log_path.to_owned()).await;
+        let logger = get_logger(&self.log_path).await;
         let shared_logger = Arc::new(logger);
 
         // Start counter function
