@@ -99,16 +99,16 @@ impl Stresster {
         }
     }
 
-    pub async fn run(self) {
+    pub async fn run(self) -> anyhow::Result<()> {
         // Generate command line args
         let matches = get_cmd_args().await;
 
         // Extract user supplied values
         let (output_format, config_filename, total_requests) =
-            extract_values_from_args(matches).await;
+            extract_values_from_args(matches).await?;
 
         // Create RequestData from data file
-        let request_data = get_request_data_from_file(&config_filename).await;
+        let request_data = get_request_data_from_file(&config_filename).await?;
         let shared_data = Arc::new(request_data);
 
         // Variables shared between tasks
@@ -116,7 +116,7 @@ impl Stresster {
         let (sender, receiver) = mpsc::channel(50);
 
         // Create a logger instance
-        let logger = get_logger(&self.log_path).await;
+        let logger = get_logger(&self.log_path).await?;
         let shared_logger = Arc::new(logger);
 
         // Start counter function
@@ -152,6 +152,8 @@ impl Stresster {
            Clap's argument parser will take care of that.
         */
         let producer = get_output_producer(output_format).await;
-        producer.produce(c, logger).await;
+        let _ = producer.produce(c, logger).await?;
+
+        Ok(())
     }
 }

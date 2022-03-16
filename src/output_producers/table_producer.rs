@@ -8,7 +8,7 @@ pub struct TableProducer;
 
 #[async_trait()]
 impl OutputProducer for TableProducer {
-    async fn produce(&self, counter_map: Countermap, logger: Logger) {
+    async fn produce(&self, counter_map: Countermap, logger: Logger) -> anyhow::Result<()> {
         let logger = logger.clone();
         debug!(logger, "Writing output in tabular format");
         // Create nice tabular view to make output easily understandable
@@ -23,6 +23,7 @@ impl OutputProducer for TableProducer {
             ]));
         }
         table.printstd();
+        Ok(())
     }
 
     async fn format_name(&self) -> String {

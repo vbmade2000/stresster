@@ -1,47 +1,40 @@
 use crate::output_producers::output_producer::OutputProducer;
 use crate::output_producers::{json_producer, table_producer};
 use crate::types::{HttpMethods, OutputFormat, RequestData};
+use anyhow::{anyhow, Context};
 use clap::{App, Arg, ArgMatches};
 use reqwest::header::{HeaderName, HeaderValue};
 use serde_json::Value;
 use slog::{Drain, Logger};
 use std::fs;
-use std::process::exit;
 
 /// Extracts and returns all the command line parameters
-pub async fn extract_values_from_args(args: ArgMatches<'_>) -> (OutputFormat, String, i32) {
+pub async fn extract_values_from_args(
+    args: ArgMatches<'_>,
+) -> anyhow::Result<(OutputFormat, String, i32)> {
     // Extract user supplied values
     let output_format = OutputFormat::from(args.value_of("format").unwrap());
-    let config_filename = args.value_of("config").unwrap().to_owned();
-    let total_requests: i32 = args.value_of("requests").unwrap().parse().unwrap();
-    (output_format, config_filename, total_requests)
+    let config_filename = args.value_of("config").unwrap();
+    let total_requests: i32 = args
+        .value_of("requests")
+        .unwrap()
+        .parse()
+        .with_context(|| "Failed to parse `requests` argument".to_string())?;
+    Ok((output_format, config_filename.to_owned(), total_requests))
 }
 
 /// Reads and parses Data file and returns RequestData struct with values fufilled
-pub async fn get_request_data_from_file(config_filename: &str) -> RequestData {
-    let content: Value; // Stores JSON data read from file
-
+pub async fn get_request_data_from_file(config_filename: &str) -> anyhow::Result<RequestData> {
     // Default values in case actual values are not supplied
-    let default_value: serde_json::Value = serde_json::from_str("{}").unwrap();
+    let default_value: serde_json::Value =
+        serde_json::from_str("{}").with_context(|| "Failed to parse default value".to_string())?;
 
     // TODO: Make error handling compact
-    let result = fs::read_to_string(&config_filename);
-    match result {
-        Ok(r) => {
-            let result = serde_json::from_str(&r);
-            match result {
-                Ok(p) => content = p,
-                Err(e) => {
-                    println!("ERROR: {}", e);
-                    exit(1)
-                }
-            }
-        }
-        Err(e) => {
-            println!("ERROR: {}, {}", config_filename, e);
-            exit(1)
-        }
-    };
+    let config_data = fs::read_to_string(&config_filename)
+        .with_context(|| format!("Failed to read config file {}", &config_filename))?;
+
+    let content: Value = serde_json::from_str(&config_data)
+        .with_context(|| format!("Failed to parse config file {}", &config_filename))?;
 
     // Extract payload or get default payload
     let actual_payload = content.get("payload").unwrap_or(&default_value);
@@ -68,22 +61,21 @@ pub async fn get_request_data_from_file(config_filename: &str) -> RequestData {
     // Extract HTTP method
     let method = content
         .get("method")
-        .expect("ERROR: Please specify method in payload file")
+        .expect("Please specify method in payload file")
         .as_str()
         .unwrap();
 
     // Grab enum value from string HTTP method
     let http_method = HttpMethods::fromstr(method);
     if http_method.is_none() {
-        println!("ERROR: Invalid HTTP method {:?}", method);
-        exit(1);
+        return Err(anyhow!(format!("Invalid HTTP method {}", method)));
     }
     request_data.method = http_method.unwrap();
 
     // Extract URL
     request_data.url = content
         .get("url")
-        .expect("ERROR: Please specify URL in payload file")
+        .expect("Please specify URL in payload file")
         .as_str()
         .unwrap()
         .to_owned();
@@ -96,23 +88,23 @@ pub async fn get_request_data_from_file(config_filename: &str) -> RequestData {
         .unwrap_or("")
         .to_owned();
 
-    request_data
+    Ok(request_data)
 }
 
-/// Creates a new logger and returns it
-pub async fn get_logger(filename: &str) -> Logger {
+/// Returns a new logger
+pub async fn get_logger(filename: &str) -> anyhow::Result<Logger> {
     // Create a logger instance
     let file = fs::OpenOptions::new()
         .create(true)
         .write(true)
         .truncate(true)
         .open(filename)
-        .expect("ERROR: Unable to create a log file");
+        .with_context(|| format!("Failed to create log file {}", filename))?;
     let decorator = slog_term::PlainDecorator::new(file);
     let drain = slog_async::Async::new(slog_term::FullFormat::new(decorator).build().fuse())
         .build()
         .fuse();
-    slog::Logger::root(drain, o!())
+    Ok(slog::Logger::root(drain, o!()))
 }
 
 /// Specifies all the command line arguments. Constructs a

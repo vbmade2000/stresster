@@ -19,5 +19,6 @@ slog-term = "2.8.0"
 slog-async = "2.6.0"
 uuid = { version = "0.8.2", features = ["v4"]}
 async-trait = "0.1.52"
+anyhow = "1.0.56"
 
 

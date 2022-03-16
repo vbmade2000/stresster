@@ -17,10 +17,11 @@ use stresster::Stresster;
 const LOG_PATH: &str = "stresster.log";
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     Stresster {
         log_path: LOG_PATH.to_owned(),
     }
     .run()
-    .await;
+    .await?;
+    Ok(())
 }
