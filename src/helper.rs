@@ -13,7 +13,7 @@ use std::fs;
 use std::process::exit;
 
 /// Extracts and returns all the command line parameters
-pub async fn extract_values_from_args<'a>(args: ArgMatches<'a>) -> (OutputFormat, String, i32) {
+pub async fn extract_values_from_args(args: ArgMatches<'_>) -> (OutputFormat, String, i32) {
     // Extract user supplied values
     let output_format = OutputFormat::from(args.value_of("format").unwrap());
     let config_filename = args.value_of("config").unwrap().to_owned();
