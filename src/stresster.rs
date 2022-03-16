@@ -47,7 +47,6 @@ impl Stresster {
     /// Sends return code to couting_machine function for accouting.
     async fn send(sender: tokio::sync::mpsc::Sender<Command>, logger: Logger, data: Data) {
         // Common vars
-        let result; // For storing request result
         let logger = logger.clone();
 
         let data = data.clone();
@@ -80,22 +79,12 @@ impl Stresster {
                 .build()
                 .unwrap();
         }
-        match method {
-            HttpMethods::Get => {
-                result = client.get(&*target_url).json(payload).send().await;
-            }
-            HttpMethods::Post => {
-                result = client.post(&*target_url).json(payload).send().await;
-            }
-            HttpMethods::Put => {
-                result = client.put(&*target_url).json(payload).send().await;
-            }
-            HttpMethods::Delete => {
-                result = client.delete(&*target_url).json(payload).send().await;
-            }
-            HttpMethods::Patch => {
-                result = client.patch(&*target_url).json(payload).send().await;
-            }
+        let result = match method {
+            HttpMethods::Get => client.get(&*target_url).json(payload).send().await,
+            HttpMethods::Post => client.post(&*target_url).json(payload).send().await,
+            HttpMethods::Put => client.put(&*target_url).json(payload).send().await,
+            HttpMethods::Delete => client.delete(&*target_url).json(payload).send().await,
+            HttpMethods::Patch => client.patch(&*target_url).json(payload).send().await,
         };
         match result {
             Ok(r) => {
@@ -119,11 +108,9 @@ impl Stresster {
         let (output_format, config_filename, total_requests) =
             extract_values_from_args(matches).await;
 
-        let shared_data: Data; // Data shared between tasks
-
         // Create RequestData from data file
         let request_data = get_request_data_from_file(config_filename).await;
-        shared_data = Arc::new(request_data);
+        let shared_data = Arc::new(request_data);
 
         // Variables shared between tasks
         let counter = Arc::new(Mutex::new(HashMap::new())); // Map of Atomic counters to keep HTTP status code count
@@ -135,8 +122,6 @@ impl Stresster {
 
         // Start counter function
         let counter_clone = counter.clone();
-        //let counting_machine_handle =
-        //    tokio::spawn(async move { Stresster::counting_machine(counter_clone, receiver).await });
         let task = Self::counting_machine(counter_clone, receiver);
         let counting_machine_handle = tokio::spawn(task);
 

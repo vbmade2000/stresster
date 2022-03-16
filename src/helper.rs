@@ -29,7 +29,7 @@ pub async fn get_request_data_from_file(config_filename: String) -> RequestData 
     let default_value: serde_json::Value = serde_json::from_str("{}").unwrap();
 
     // TODO: Make error handling compact
-    let result = fs::read_to_string(config_filename.to_owned());
+    let result = fs::read_to_string(&config_filename);
     match result {
         Ok(r) => {
             let result = serde_json::from_str(&r);
