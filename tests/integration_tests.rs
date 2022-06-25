@@ -20,13 +20,19 @@ fn log_file_exists() {
     let stresster_path = get_path_from_env_var(
         STRESSTER_PATH.to_string(),
         "./target/debug/stresster".to_string(),
+        true,
     );
     let data_file_path = get_path_from_env_var(
         DATA_FILE_PATH.to_string(),
         "./sample_payload.json".to_string(),
+        true,
     );
-    let log_file_path =
-        get_path_from_env_var(LOG_FILE_PATH.to_string(), "./stresster.log".to_string());
+
+    let log_file_path = get_path_from_env_var(
+        LOG_FILE_PATH.to_string(),
+        "./stresster.log".to_string(),
+        false,
+    );
 
     // Delete existing strestter log file (if exists) to generate fresh one
     let _ = fs::remove_file(log_file_path.clone());
@@ -57,8 +63,8 @@ fn test_headers() {
     let stresster_path = get_path_from_env_var(
         STRESSTER_PATH.to_string(),
         "./target/debug/stresster".to_string(),
+        true,
     );
-    println!("#############1");
 
     /* We need to create a new data file from original file. It will contain an
      * extra header we want to supply. This way we keep original file intact.
@@ -69,7 +75,6 @@ fn test_headers() {
     let mut temp_file_name = PathBuf::new();
     temp_file_name.push(dir);
     temp_file_name.push(format!("{}.json", Uuid::new_v4().to_string()));
-    println!("#############2");
 
     // Read JSON from file
     // let mut file = fs::File::open(temp_file_name).unwrap();
@@ -98,7 +103,6 @@ fn test_headers() {
         ),
         &data,
     );
-    println!("#############3");
 
     // Execute stresster
     let output = Command::new(stresster_path)
@@ -111,7 +115,6 @@ fn test_headers() {
         .stdout(Stdio::piped())
         .output()
         .expect("ERROR: Error in executing stresster binary");
-    println!("#############4");
 
     // Extract total failed request from output
     let output: Value = from_str(str::from_utf8(&output.stdout).unwrap())
@@ -128,12 +131,11 @@ fn _get_value_from_json(json: String) -> Value {
 }
 
 /// Get PathBuf from path stored in ev var
-fn get_path_from_env_var(var_name: String, default_value: String) -> PathBuf {
+fn get_path_from_env_var(var_name: String, default_value: String, must_present: bool) -> PathBuf {
     let val = env::var(var_name.to_string()).unwrap_or(default_value);
-
-    // let val = env::var(var_name.to_string())
-    //     .expect(format!("ERROR: {} env var is not present", var_name.to_string()).as_str());
-    PathBuf::from(val)
-        .canonicalize()
-        .expect(format!("ERROR: {} path doesn't exist", var_name).as_str())
+    if must_present {
+        PathBuf::from(val).canonicalize().unwrap()
+    } else {
+        PathBuf::from(val)
+    }
 }
