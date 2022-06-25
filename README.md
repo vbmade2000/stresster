@@ -70,7 +70,26 @@ Here target server is not up so status code is 0.
 
 
 ### Run integration tests
+
+Integration tests require test server (developed using Python) to run. YOu can run in following way if not already running.
+```
+$ python3 -m venv venv
+$ source venv/bin/activate
+$ pip3 install flask
+$ cd test_server
+$ python server.py
+```
+
+If values for following variables are different from shown below then you can export env vars with same name.
+```
+STRESSTER_PATH=./target/debug/stresster
+DATA_FILE_PATH=./sample_payload.json
+LOG_FILE_PATH=./stresster.log
+```
+
+`cargo build`
 `cargo test -- --nocapture`
+`pkill -9 -f 'python server.py'`
 
 
 ### Report bugs etc 

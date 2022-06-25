@@ -17,9 +17,16 @@ const LOG_FILE_PATH: &str = "LOG_FILE_PATH";
 #[test]
 fn log_file_exists() {
     // Get paths from env vars
-    let stresster_path = get_path_from_env_var(STRESSTER_PATH.to_string());
-    let data_file_path = get_path_from_env_var(DATA_FILE_PATH.to_string());
-    let log_file_path = get_path_from_env_var(LOG_FILE_PATH.to_string());
+    let stresster_path = get_path_from_env_var(
+        STRESSTER_PATH.to_string(),
+        "./target/debug/stresster".to_string(),
+    );
+    let data_file_path = get_path_from_env_var(
+        DATA_FILE_PATH.to_string(),
+        "./sample_payload.json".to_string(),
+    );
+    let log_file_path =
+        get_path_from_env_var(LOG_FILE_PATH.to_string(), "./stresster.log".to_string());
 
     // Delete existing strestter log file (if exists) to generate fresh one
     let _ = fs::remove_file(log_file_path.clone());
@@ -47,7 +54,11 @@ fn log_file_exists() {
 #[test]
 fn test_headers() {
     // Get paths from env vars
-    let stresster_path = get_path_from_env_var(STRESSTER_PATH.to_string());
+    let stresster_path = get_path_from_env_var(
+        STRESSTER_PATH.to_string(),
+        "./target/debug/stresster".to_string(),
+    );
+    println!("#############1");
 
     /* We need to create a new data file from original file. It will contain an
      * extra header we want to supply. This way we keep original file intact.
@@ -58,6 +69,7 @@ fn test_headers() {
     let mut temp_file_name = PathBuf::new();
     temp_file_name.push(dir);
     temp_file_name.push(format!("{}.json", Uuid::new_v4().to_string()));
+    println!("#############2");
 
     // Read JSON from file
     // let mut file = fs::File::open(temp_file_name).unwrap();
@@ -86,6 +98,7 @@ fn test_headers() {
         ),
         &data,
     );
+    println!("#############3");
 
     // Execute stresster
     let output = Command::new(stresster_path)
@@ -98,12 +111,15 @@ fn test_headers() {
         .stdout(Stdio::piped())
         .output()
         .expect("ERROR: Error in executing stresster binary");
+    println!("#############4");
 
     // Extract total failed request from output
     let output: Value = from_str(str::from_utf8(&output.stdout).unwrap())
         .expect("Unable to convert stresster output to JSON");
-    let total_failed_requests = output.get("0").unwrap();
-    assert_eq!(total_failed_requests, 1);
+
+    // Here We check if that one request we have received has status code 204 that we sent with request for testing purpose.
+    let recived_status_code = output.get("204").unwrap();
+    assert_eq!(recived_status_code, 1);
 }
 
 /// Convert String in JSON format to Value
@@ -112,9 +128,11 @@ fn _get_value_from_json(json: String) -> Value {
 }
 
 /// Get PathBuf from path stored in ev var
-fn get_path_from_env_var(var_name: String) -> PathBuf {
-    let val = env::var(var_name.to_string())
-        .expect(format!("ERROR: {} env var is not present", var_name.to_string()).as_str());
+fn get_path_from_env_var(var_name: String, default_value: String) -> PathBuf {
+    let val = env::var(var_name.to_string()).unwrap_or(default_value);
+
+    // let val = env::var(var_name.to_string())
+    //     .expect(format!("ERROR: {} env var is not present", var_name.to_string()).as_str());
     PathBuf::from(val)
         .canonicalize()
         .expect(format!("ERROR: {} path doesn't exist", var_name).as_str())
