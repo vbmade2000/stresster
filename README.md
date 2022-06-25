@@ -1,3 +1,5 @@
+[![Rust](https://github.com/vbmade2000/stresster/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/vbmade2000/stresster/actions/workflows/rust.yml)
+
 ### What is stresster?
 ***stresster*** is a command line utility to stress test REST API endpoints. It is developed using a Rust programming language and uses tokio async runtime to concurrently send requests. This makes it fast.
 
