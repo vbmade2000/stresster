@@ -105,7 +105,7 @@ impl Stresster {
 
         // Extract user supplied values
         let (output_format, config_filename, total_requests) =
-            extract_values_from_args(&matches).await?;
+            extract_values_from_args(matches).await?;
 
         // Create RequestData from data file
         let request_data = get_request_data_from_file(&config_filename).await?;
