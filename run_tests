@@ -1,0 +1,31 @@
+#!/bin/bash
+
+set -x
+
+
+# Set these vars if path is different
+# export STRESSTER_PATH=./target/debug/stresster
+# export DATA_FILE_PATH=./sample_payload.json
+# export LOG_FILE_PATH=./stresster.log
+
+VENV=venv # Python virtual env directory name.
+
+# Create Python virtual env if not present
+if [ ! -d $VENV ]; then
+    echo "Python virtual env not found. Creating one..."
+    /usr/bin/python3 -m venv $VENV
+fi
+
+source ./$VENV/bin/activate
+
+# Install flask if not already installed.
+pip list | grep -i flask
+if [ $? -eq 1 ]; then
+    echo "Installing flask"	
+    pip install flask
+fi
+
+python ./test_server/server.py &
+/home/vbmade2000/.cargo/bin/cargo test
+deactivate
+pkill -9 -f 'python ./test_server/server.py'
